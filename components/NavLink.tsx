@@ -7,11 +7,13 @@ import { focusRing } from "./ui";
 
 type NavLinkProps = Omit<ComponentProps<typeof Link>, "href"> & {
   href: string;
+  // Only highlight on this exact path, e.g. "/" would otherwise match every page
+  exact?: boolean;
 };
 
-export default function NavLink({ href, className = "", ...props }: NavLinkProps) {
+export default function NavLink({ href, exact = false, className = "", ...props }: NavLinkProps) {
   const pathname = usePathname();
-  const active = pathname === href || pathname.startsWith(`${href}/`);
+  const active = pathname === href || (!exact && pathname.startsWith(`${href}/`));
 
   return (
     <Link

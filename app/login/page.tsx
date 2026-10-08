@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import FootballIcon from "@/components/FootballIcon";
+import CaptionIcon from "@/components/CaptionIcon";
 import { card, focusRing } from "@/components/ui";
 import { getUser } from "@/lib/dal";
 import GoogleSignInButton from "./GoogleSignInButton";
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  if (await getUser()) redirect("/dashboard");
+  if (await getUser()) redirect("/");
 
   // Only used as a flag; the raw value is never shown
   const { error } = await searchParams;
@@ -21,11 +21,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <main className="flex flex-1 items-center justify-center px-4 py-12 sm:p-8">
       <div className={`${card} w-full max-w-sm p-6 text-center sm:p-8`}>
         <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-          <FootballIcon className="size-7" />
+          <CaptionIcon className="size-7" />
         </span>
-        <h1 className="mt-4 text-2xl font-bold">Sign in to Gridiron</h1>
+        <h1 className="mt-4 text-2xl font-bold">Sign in to Caption City</h1>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Unlock your dashboard with season totals and a yards leaderboard.
+          Vote on the funniest captions and turn your own photos into posts.
         </p>
 
         {failed && (
@@ -50,7 +50,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           className={`mt-6 inline-block rounded-sm text-sm font-medium text-gray-600 underline-offset-4 hover:text-foreground hover:underline dark:text-gray-400 ${focusRing}`}
         >
           <span aria-hidden="true">← </span>
-          Back to players
+          Back to the feed
         </Link>
       </div>
     </main>

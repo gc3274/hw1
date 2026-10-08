@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { signOut } from "@/app/auth/actions";
 import { getProfile, getUser } from "@/lib/dal";
 import Avatar from "./Avatar";
-import FootballIcon from "./FootballIcon";
+import CaptionIcon from "./CaptionIcon";
 import NavLink from "./NavLink";
 import SubmitButton from "./SubmitButton";
 import { button, focusRing } from "./ui";
@@ -16,8 +16,8 @@ export default function Header() {
           href="/"
           className={`mr-auto inline-flex items-center gap-2 rounded-md text-lg font-bold tracking-tight ${focusRing}`}
         >
-          <FootballIcon className="size-6 text-emerald-600 dark:text-emerald-500" />
-          Gridiron
+          <CaptionIcon className="size-6 text-emerald-600 dark:text-emerald-500" />
+          Caption City
         </Link>
         <Suspense fallback={<AccountNavSkeleton />}>
           <AccountNav />
@@ -50,9 +50,16 @@ async function AccountNav() {
   const user = await getUser();
   if (!user) {
     return (
-      <Link href="/login" className={button("primary", "sm")}>
-        Sign in
-      </Link>
+      <>
+        <nav aria-label="Main" className="flex gap-1">
+          <NavLink href="/" exact>
+            Feed
+          </NavLink>
+        </nav>
+        <Link href="/login" className={button("primary", "sm")}>
+          Sign in
+        </Link>
+      </>
     );
   }
 
@@ -62,9 +69,13 @@ async function AccountNav() {
 
   return (
     <>
-      <nav aria-label="Account" className="order-last flex w-full gap-1 sm:order-none sm:w-auto">
+      <nav aria-label="Main" className="order-last flex w-full flex-wrap gap-1 sm:order-none sm:w-auto">
+        <NavLink href="/" exact>
+          Feed
+        </NavLink>
         {profile.isComplete ? (
           <>
+            <NavLink href="/new">New post</NavLink>
             <NavLink href="/dashboard">Dashboard</NavLink>
             <NavLink href="/profile">Profile</NavLink>
           </>

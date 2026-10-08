@@ -116,5 +116,5 @@ export function displayName(
   last: string | null | undefined,
   email: string | null | undefined,
 ) {
-  return [first, last].filter(Boolean).join(" ") || email || "Player";
+  return [first, last].filter(Boolean).join(" ") || email || "Member";
 }

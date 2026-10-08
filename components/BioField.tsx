@@ -18,7 +18,7 @@ export default function BioField({ value, onChange, error }: BioFieldProps) {
       label="Short bio"
       optional
       maxLength={BIO_MAX}
-      placeholder="Ex: favorite football team!"
+      placeholder="Ex: Ohio → Morningside Heights, still hunting for good pizza"
       value={value}
       onChange={onChange}
       error={error}

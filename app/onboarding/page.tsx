@@ -14,7 +14,7 @@ export default async function OnboardingPage() {
   // requireCompleteProfile() would bounce straight back here
   const user = await requireUser();
   const profile = await getProfile();
-  if (profile?.isComplete) redirect("/dashboard");
+  if (profile?.isComplete) redirect("/");
 
   const suggested = suggestNames(user.user_metadata);
   const email = profile?.email ?? user.email ?? null;
@@ -31,7 +31,7 @@ export default async function OnboardingPage() {
             size={56}
           />
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold">Welcome to Gridiron</h1>
+            <h1 className="text-2xl font-bold">Welcome to Caption City</h1>
             {email && (
               <p className="truncate text-sm text-gray-600 dark:text-gray-400">
                 Signed in as {email}

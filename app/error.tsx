@@ -27,7 +27,7 @@ export default function Error({
             Try again
           </button>
           <Link href="/" className={button("secondary")}>
-            Back to players
+            Back to the feed
           </Link>
         </div>
       </div>

@@ -26,5 +26,5 @@ export async function GET(request: NextRequest) {
     .eq("id", data.user.id)
     .maybeSingle<{ first_name: string | null; last_name: string | null }>();
 
-  redirect(isProfileComplete(profile) ? "/dashboard" : "/onboarding");
+  redirect(isProfileComplete(profile) ? "/" : "/onboarding");
 }

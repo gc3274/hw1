@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import "./globals.css";
 
@@ -15,10 +16,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Gridiron",
-    template: "%s · Gridiron",
+    default: "Caption City",
+    template: "%s · Caption City",
   },
-  description: "Football player stats, plus a members-only dashboard.",
+  description:
+    "Caption your campus and NYC photos with AI, post the best ones, and vote on everyone else's.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <div id="content" className="flex flex-1 flex-col">
           {children}
         </div>
+        <Footer />
       </body>
     </html>
   );
