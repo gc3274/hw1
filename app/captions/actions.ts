@@ -134,5 +134,7 @@ export async function saveCaptionChoices(
     .select("id", { count: "exact", head: true })
     .eq("image_id", input.imageId)
     .eq("is_public", true);
+  if (error) console.error("Counting public captions failed:", error.message);
+  refresh();
   redirect(doneHref(error ? input.toPost.length > 0 : (count ?? 0) > 0));
 }

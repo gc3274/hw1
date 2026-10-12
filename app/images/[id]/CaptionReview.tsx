@@ -134,7 +134,7 @@ export default function CaptionReview({
           {groups.length > 0 && (
             <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:bottom-4 sm:mt-8 sm:rounded-2xl sm:border sm:pb-3">
               <div className="flex items-center justify-between gap-4">
-                <p className="min-w-0 text-sm text-muted">
+                <p className="min-w-0 text-sm text-muted" aria-live="polite">
                   <span className="font-mono font-semibold text-fg tabular-nums">{postedCount}</span>{" "}
                   {dirty ? "will be posted" : "posted"}
                   {dirty && (
@@ -222,7 +222,7 @@ function CaptionRow({
       </p>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <VisibilitySwitch isPublic={isPublic} disabled={disabled} describedBy={textId} onChange={onChange} />
+          <VisibilitySwitch isPublic={isPublic} disabled={disabled} captionId={textId} onChange={onChange} />
           {changed && <span className="text-xs font-medium text-amber-300">Unsaved</span>}
         </div>
         {/* Votes only exist for captions that are saved as public */}
@@ -249,23 +249,26 @@ const OPTIONS = [
 function VisibilitySwitch({
   isPublic,
   disabled,
-  describedBy,
+  captionId,
   onChange,
 }: {
   isPublic: boolean;
   disabled: boolean;
-  describedBy: string;
+  captionId: string;
   onChange: (isPublic: boolean) => void;
 }) {
   const name = useId();
+  const legendId = useId();
 
   return (
     <fieldset
       disabled={disabled}
-      aria-describedby={describedBy}
+      aria-labelledby={`${legendId} ${captionId}`}
       className="inline-flex rounded-full border border-line bg-ink/60 p-1 disabled:opacity-60"
     >
-      <legend className="sr-only">Who can see this caption</legend>
+      <legend id={legendId} className="sr-only">
+        Who can see this caption
+      </legend>
       {OPTIONS.map((option) => (
         <label key={option.label} className="relative">
           <input
