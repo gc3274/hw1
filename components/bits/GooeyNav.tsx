@@ -1,11 +1,12 @@
 "use client";
 // Adapted from React Bits (reactbits.dev), MIT + Commons Clause.
 // Changes: Next <Link> navigation, active item controlled by the caller,
-// aria-current and focus ring, styles in globals.css (.gooey-nav), no
+// aria-current and focus ring, styles in globals.css (.gooey-nav), an SVG
+// alpha goo filter instead of the black-backdrop blur/contrast trick, no
 // particles under reduced motion.
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { usePrefersReducedMotion } from "@/components/fx/hooks";
 import { focusRing } from "@/components/ui";
 
@@ -48,6 +49,7 @@ export default function GooeyNav({
   const textRef = useRef<HTMLSpanElement>(null);
   const previousIndex = useRef<number | null>(null);
   const reduce = usePrefersReducedMotion();
+  const filterId = `gooey-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   const noise = (n = 1) => n / 2 - Math.random() * n;
   const getXY = (distance: number, pointIndex: number, totalPoints: number): [number, number] => {
@@ -144,6 +146,12 @@ export default function GooeyNav({
 
   return (
     <div ref={containerRef} className={`gooey-nav relative ${className}`}>
+      <svg aria-hidden="true" width="0" height="0" className="absolute">
+        <filter id={filterId} x="-100%" y="-300%" width="300%" height="700%">
+          <feGaussianBlur stdDeviation="7" />
+          <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" />
+        </filter>
+      </svg>
       <nav aria-label={label} className="relative flex" style={{ transform: "translate3d(0,0,0.01px)" }}>
         <ul ref={listRef} className="relative z-[3] m-0 flex list-none flex-wrap gap-1 p-0">
           {items.map((item, index) => (
@@ -160,7 +168,12 @@ export default function GooeyNav({
           ))}
         </ul>
       </nav>
-      <span aria-hidden="true" className="effect filter" ref={filterRef} />
+      <span
+        aria-hidden="true"
+        className="effect filter"
+        ref={filterRef}
+        style={{ filter: `url(#${filterId})` }}
+      />
       <span aria-hidden="true" className="effect text" ref={textRef} />
     </div>
   );
