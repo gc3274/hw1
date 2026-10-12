@@ -6,6 +6,7 @@ import {
   FEED_MAX,
   FEED_PAGE_SIZE,
   applyVote,
+  firstOfEachImage,
   isOwnImagePath,
   isUuid,
   nextVote,
@@ -336,5 +337,23 @@ describe("parseCaptionResponse", () => {
     });
     const unknownOnly = response([{ flavor_slug: "dad-jokes", text: "Hi hungry" }]);
     expect(parseCaptionResponse(unknownOnly, FLAVORS)).toEqual({ ok: false, reason: "empty" });
+  });
+});
+
+describe("firstOfEachImage", () => {
+  const item = (id: string) => ({ image: { id } });
+
+  it("flags only the first card for each photo", () => {
+    expect(firstOfEachImage([item("a"), item("b"), item("a"), item("c"), item("b")])).toEqual([
+      true,
+      true,
+      false,
+      true,
+      false,
+    ]);
+  });
+
+  it("handles an empty feed", () => {
+    expect(firstOfEachImage([])).toEqual([]);
   });
 });

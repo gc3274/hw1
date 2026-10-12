@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AnimatedContent from "@/components/bits/AnimatedContent";
 import GooeyNav from "@/components/bits/GooeyNav";
 import CaptionCard from "@/components/CaptionCard";
 import Hero from "@/components/Hero";
@@ -8,6 +9,7 @@ import WelcomeBand from "@/components/WelcomeBand";
 import {
   FEED_MAX,
   FEED_PAGE_SIZE,
+  firstOfEachImage,
   parseFeedLimit,
   parseFeedSort,
   type FeedSort,
@@ -60,6 +62,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     <WelcomeBand profile={profile} />
   ) : null;
   const FeedHeading = banner ? "h2" : "h1";
+  const morphFlags = firstOfEachImage(feed.captions);
 
   return (
     <PageTransition>
@@ -96,15 +99,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <EmptyFeed sort={sort} canPost={canPost} signedIn={signedIn} />
           ) : (
             <>
-              <ul className="mt-6 grid gap-6 sm:grid-cols-2">
+              <ul className="mt-8 grid gap-6 sm:grid-cols-2">
                 {feed.captions.map((caption, i) => (
                   <li key={caption.id}>
-                    <CaptionCard
-                      caption={caption}
-                      myVote={votes[caption.id] ?? 0}
-                      signedIn={signedIn}
-                      eager={i < 2}
-                    />
+                    <AnimatedContent delay={(i % 2) * 0.08} className="h-full">
+                      <CaptionCard
+                        caption={caption}
+                        myVote={votes[caption.id] ?? 0}
+                        signedIn={signedIn}
+                        eager={i < 2}
+                        morph={morphFlags[i]}
+                      />
+                    </AnimatedContent>
                   </li>
                 ))}
               </ul>

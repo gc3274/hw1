@@ -136,3 +136,14 @@ export function applyVote(counts: VoteCounts, from: VoteValue, to: VoteValue): V
   const down = counts.downvotes - (from === -1 ? 1 : 0) + (to === -1 ? 1 : 0);
   return { upvotes: Math.max(0, up), downvotes: Math.max(0, down) };
 }
+
+// Shared-element transition names must be unique on a page, and one photo can
+// have several posted captions in the feed
+export function firstOfEachImage(items: { image: { id: string } }[]): boolean[] {
+  const seen = new Set<string>();
+  return items.map(({ image }) => {
+    if (seen.has(image.id)) return false;
+    seen.add(image.id);
+    return true;
+  });
+}

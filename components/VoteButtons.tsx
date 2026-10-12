@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useId, useOptimistic, useRef, useState, useTransition, type MouseEvent } from "react";
 import { castVote } from "@/app/captions/actions";
 import { applyVote, nextVote, type VoteValue } from "@/lib/captions";
+import RollingNumber from "./fx/RollingNumber";
 import { button, focusRing } from "./ui";
 
 type VoteButtonsProps = {
@@ -17,8 +18,8 @@ type VoteButtonsProps = {
 type VoteState = { myVote: VoteValue; upvotes: number; downvotes: number };
 
 // Colors live only in the per-state strings below so no two classes fight over a property
-const arrowClass = `inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-base leading-none transition-colors motion-reduce:transition-none ${focusRing}`;
-const arrowIdle = "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-900";
+const arrowClass = `inline-flex size-9 cursor-pointer items-center justify-center rounded-full text-base leading-none transition-[background-color,color,scale] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100 ${focusRing}`;
+const arrowIdle = "text-muted hover:bg-white/5";
 
 export default function VoteButtons({
   captionId,
@@ -75,26 +76,20 @@ export default function VoteButtons({
           aria-pressed={up}
           aria-label={up ? "Remove upvote" : "Upvote"}
           className={`${arrowClass} ${
-            up
-              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/60 dark:text-emerald-300 dark:hover:bg-emerald-900"
-              : `${arrowIdle} hover:text-emerald-700 dark:hover:text-emerald-400`
+            up ? "bg-lime/15 text-lime hover:bg-lime/25" : `${arrowIdle} hover:text-lime`
           }`}
         >
-          <span aria-hidden="true">▲</span>
+          <span aria-hidden="true" key={up ? "on" : "off"} className={up ? "animate-pop motion-reduce:animate-none" : ""}>▲</span>
         </button>
         <span
-          aria-live="polite"
-          aria-atomic="true"
-          className={`min-w-8 text-center text-sm font-semibold tabular-nums ${
-            up
-              ? "text-emerald-700 dark:text-emerald-400"
-              : down
-                ? "text-rose-700 dark:text-rose-400"
-                : ""
+          className={`min-w-8 text-center font-mono text-sm font-semibold tabular-nums ${
+            up ? "text-lime" : down ? "text-rose" : "text-fg"
           }`}
         >
-          <span className="sr-only">Score </span>
-          {score}
+          <span aria-live="polite" aria-atomic="true" className="sr-only">
+            Score {score}
+          </span>
+          <RollingNumber value={score} />
         </span>
         <button
           type="button"
@@ -102,17 +97,15 @@ export default function VoteButtons({
           aria-pressed={down}
           aria-label={down ? "Remove downvote" : "Downvote"}
           className={`${arrowClass} ${
-            down
-              ? "bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-950"
-              : `${arrowIdle} hover:text-rose-700 dark:hover:text-rose-400`
+            down ? "bg-rose/15 text-rose hover:bg-rose/25" : `${arrowIdle} hover:text-rose`
           }`}
         >
-          <span aria-hidden="true">▼</span>
+          <span aria-hidden="true" key={down ? "on" : "off"} className={down ? "animate-pop motion-reduce:animate-none" : ""}>▼</span>
         </button>
       </div>
 
       {error && (
-        <p role="alert" className="max-w-56 text-right text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="max-w-56 text-right text-xs text-rose">
           {error}
         </p>
       )}
@@ -123,13 +116,13 @@ export default function VoteButtons({
           aria-labelledby={titleId}
           aria-describedby={bodyId}
           onClick={onDialogClick}
-          className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-lg border border-gray-300 bg-background p-0 text-foreground shadow-xl backdrop:bg-black/50 dark:border-gray-700"
+          className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-line bg-ink p-0 text-fg shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
         >
           <div className="p-6">
             <h2 id={titleId} className="text-lg font-semibold">
               Log in to vote
             </h2>
-            <p id={bodyId} className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            <p id={bodyId} className="mt-2 text-sm text-muted">
               Sign in with your Google account to vote on captions.
             </p>
             <div className="mt-6 flex flex-wrap justify-end gap-3">
