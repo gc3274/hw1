@@ -41,13 +41,16 @@ export default function Hero({ preview }: { preview: PreviewCaption[] }) {
             id="hero-heading"
             className="mt-6 font-display text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-7xl lg:text-8xl"
           >
-            <MotionSwap still={<span className="block">{HEADLINE}</span>}>
-              <SplitText tag="span" text={HEADLINE} textAlign="left" className="block" />
-            </MotionSwap>
-            <span className="block animate-rise [animation-delay:900ms] motion-reduce:animate-none">
-              <GradientText colors={["#c4ff3d", "#ff3ea5", "#a78bfa", "#c4ff3d"]} animationSpeed={6}>
-                funny.
-              </GradientText>
+            <span className="sr-only">Make your camera roll funny.</span>
+            <span aria-hidden="true">
+              <MotionSwap still={<span className="block">{HEADLINE}</span>}>
+                <SplitText tag="span" text={HEADLINE} textAlign="left" className="block" />
+              </MotionSwap>
+              <span className="block animate-rise [animation-delay:900ms] motion-reduce:animate-none">
+                <GradientText colors={["#c4ff3d", "#ff3ea5", "#a78bfa", "#c4ff3d"]} animationSpeed={6}>
+                  funny.
+                </GradientText>
+              </span>
             </span>
           </h1>
 

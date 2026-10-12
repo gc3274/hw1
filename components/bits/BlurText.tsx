@@ -57,19 +57,19 @@ const BlurText: React.FC<BlurTextProps> = ({
   const reduce = usePrefersReducedMotion();
 
   useEffect(() => {
-    if (!ref.current) return;
+    if (reduce || !ref.current) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setInView(true);
-          observer.unobserve(ref.current as Element);
+          observer.unobserve(entry.target);
         }
       },
       { threshold, rootMargin }
     );
     observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [threshold, rootMargin]);
+  }, [threshold, rootMargin, reduce]);
 
   const defaultFrom = useMemo(
     () =>

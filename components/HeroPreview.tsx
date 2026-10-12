@@ -13,6 +13,7 @@ export default function HeroPreview({ captions }: { captions: PreviewCaption[] }
   return (
     <div aria-hidden="true" className="relative mx-auto h-[380px] w-[280px] sm:h-[440px] sm:w-[330px]">
       <CardSwap
+        key={captions.map((c) => c.id).join()}
         width="100%"
         height="100%"
         cardDistance={36}
