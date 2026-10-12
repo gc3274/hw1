@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import CaptionCard from "@/components/CaptionCard";
 import CaptionIcon from "@/components/CaptionIcon";
+import PageTransition from "@/components/PageTransition";
 import { button, card, focusRing } from "@/components/ui";
 import {
   FEED_MAX,
@@ -45,70 +46,72 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const canPost = Boolean(profile?.isComplete);
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:p-8">
-      {(!user || profile) && <MemberCallout profile={profile} />}
+    <PageTransition>
+      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:p-8">
+        {(!user || profile) && <MemberCallout profile={profile} />}
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Feed</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Campus and city photos with AI-written captions, ranked by your votes.
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Feed</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Campus and city photos with AI-written captions, ranked by your votes.
+            </p>
+          </div>
+          <nav aria-label="Sort posts">
+            <ul className="flex gap-1 rounded-lg border border-gray-300 p-1 dark:border-gray-700">
+              {TABS.map((tab) => (
+                <li key={tab.sort}>
+                  <Link
+                    href={feedHref(tab.sort)}
+                    aria-current={tab.sort === sort ? "page" : undefined}
+                    className={`block rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors motion-reduce:transition-none hover:bg-gray-100 hover:text-foreground aria-[current=page]:bg-emerald-50 aria-[current=page]:text-emerald-800 dark:text-gray-400 dark:hover:bg-gray-900 dark:aria-[current=page]:bg-emerald-950/60 dark:aria-[current=page]:text-emerald-300 ${focusRing}`}
+                  >
+                    {tab.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
-        <nav aria-label="Sort posts">
-          <ul className="flex gap-1 rounded-lg border border-gray-300 p-1 dark:border-gray-700">
-            {TABS.map((tab) => (
-              <li key={tab.sort}>
-                <Link
-                  href={feedHref(tab.sort)}
-                  aria-current={tab.sort === sort ? "page" : undefined}
-                  className={`block rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors motion-reduce:transition-none hover:bg-gray-100 hover:text-foreground aria-[current=page]:bg-emerald-50 aria-[current=page]:text-emerald-800 dark:text-gray-400 dark:hover:bg-gray-900 dark:aria-[current=page]:bg-emerald-950/60 dark:aria-[current=page]:text-emerald-300 ${focusRing}`}
-                >
-                  {tab.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </div>
 
-      {feed.error ? (
-        <p
-          role="alert"
-          className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-        >
-          We couldn’t load the feed right now. Please refresh to try again.
-        </p>
-      ) : feed.captions.length === 0 ? (
-        <EmptyFeed sort={sort} canPost={canPost} signedIn={signedIn} />
-      ) : (
-        <>
-          <ul className="mt-6 grid gap-6 sm:grid-cols-2">
-            {feed.captions.map((caption, i) => (
-              <li key={caption.id}>
-                <CaptionCard
-                  caption={caption}
-                  myVote={votes[caption.id] ?? 0}
-                  signedIn={signedIn}
-                  eager={i < 2}
-                />
-              </li>
-            ))}
-          </ul>
-          {feed.hasMore && limit < FEED_MAX && (
-            <div className="mt-8 flex justify-center">
-              <Link
-                href={feedHref(sort, limit + FEED_PAGE_SIZE)}
-                scroll={false}
-                className={button("secondary")}
-              >
-                Show more
-              </Link>
-            </div>
-          )}
-        </>
-      )}
-    </main>
+        {feed.error ? (
+          <p
+            role="alert"
+            className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+          >
+            We couldn’t load the feed right now. Please refresh to try again.
+          </p>
+        ) : feed.captions.length === 0 ? (
+          <EmptyFeed sort={sort} canPost={canPost} signedIn={signedIn} />
+        ) : (
+          <>
+            <ul className="mt-6 grid gap-6 sm:grid-cols-2">
+              {feed.captions.map((caption, i) => (
+                <li key={caption.id}>
+                  <CaptionCard
+                    caption={caption}
+                    myVote={votes[caption.id] ?? 0}
+                    signedIn={signedIn}
+                    eager={i < 2}
+                  />
+                </li>
+              ))}
+            </ul>
+            {feed.hasMore && limit < FEED_MAX && (
+              <div className="mt-8 flex justify-center">
+                <Link
+                  href={feedHref(sort, limit + FEED_PAGE_SIZE)}
+                  scroll={false}
+                  className={button("secondary")}
+                >
+                  Show more
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+    </PageTransition>
   );
 }
 

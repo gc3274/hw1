@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageTransition from "@/components/PageTransition";
 import PostToggle from "@/components/PostToggle";
 import VoteButtons from "@/components/VoteButtons";
 import { button, card, focusRing } from "@/components/ui";
@@ -69,81 +70,83 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
   const groups = groupByFlavor(image.captions);
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:p-8">
-      <Link
-        href="/"
-        className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-gray-600 underline-offset-4 hover:underline dark:text-gray-400 ${focusRing}`}
-      >
-        <span aria-hidden="true">←</span> Back to the feed
-      </Link>
+    <PageTransition>
+      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:p-8">
+        <Link
+          href="/"
+          className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-gray-600 underline-offset-4 hover:underline dark:text-gray-400 ${focusRing}`}
+        >
+          <span aria-hidden="true">←</span> Back to the feed
+        </Link>
 
-      <div className="grid gap-8 md:grid-cols-2 md:items-start">
-        <div className="md:sticky md:top-8">
-          <div
-            className={`${card} relative aspect-[4/5] w-full overflow-hidden bg-gray-100 dark:bg-gray-900`}
-          >
-            <Image
-              src={image.url}
-              alt={image.isOwner ? "Your uploaded photo" : "Uploaded photo"}
-              fill
-              sizes="(min-width: 896px) 416px, (min-width: 768px) 50vw, 100vw"
-              loading="eager"
-              className="object-contain"
-            />
+        <div className="grid gap-8 md:grid-cols-2 md:items-start">
+          <div className="md:sticky md:top-8">
+            <div
+              className={`${card} relative aspect-[4/5] w-full overflow-hidden bg-gray-100 dark:bg-gray-900`}
+            >
+              <Image
+                src={image.url}
+                alt={image.isOwner ? "Your uploaded photo" : "Uploaded photo"}
+                fill
+                sizes="(min-width: 896px) 416px, (min-width: 768px) 50vw, 100vw"
+                loading="eager"
+                className="object-contain"
+              />
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold">{image.isOwner ? "Your captions" : "Captions"}</h1>
+            {image.isOwner && (
+              <p className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+                Only you can see captions you haven’t posted. Post the ones you like.
+              </p>
+            )}
+
+            {groups.length === 0 ? (
+              <p
+                className={`${card} mt-6 border-dashed p-4 text-sm text-gray-600 dark:text-gray-400`}
+              >
+                No captions here yet.
+              </p>
+            ) : (
+              <div className="mt-6 space-y-8">
+                {groups.map((group) => (
+                  <section key={group.id} aria-labelledby={`flavor-${group.id}`}>
+                    <h2
+                      id={`flavor-${group.id}`}
+                      className="text-sm font-semibold tracking-wide text-gray-600 uppercase dark:text-gray-400"
+                    >
+                      {group.name || "Captions"}
+                    </h2>
+                    <ul className="mt-3 space-y-3">
+                      {group.captions.map((caption) => (
+                        <li
+                          key={caption.id}
+                          className={`${card} p-4 ${caption.isPublic ? "" : "border-dashed"}`}
+                        >
+                          <p className="text-lg leading-snug font-bold text-pretty break-words">
+                            {caption.content}
+                          </p>
+                          <CaptionActions
+                            caption={caption}
+                            isOwner={image.isOwner}
+                            myVote={votes[caption.id] ?? 0}
+                            signedIn={signedIn}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            )}
+
+            {image.isOwner && groups.length > 0 && <DoneBar captions={image.captions} />}
           </div>
         </div>
-
-        <div className="min-w-0">
-          <h1 className="text-3xl font-bold">{image.isOwner ? "Your captions" : "Captions"}</h1>
-          {image.isOwner && (
-            <p className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-              Only you can see captions you haven’t posted. Post the ones you like.
-            </p>
-          )}
-
-          {groups.length === 0 ? (
-            <p
-              className={`${card} mt-6 border-dashed p-4 text-sm text-gray-600 dark:text-gray-400`}
-            >
-              No captions here yet.
-            </p>
-          ) : (
-            <div className="mt-6 space-y-8">
-              {groups.map((group) => (
-                <section key={group.id} aria-labelledby={`flavor-${group.id}`}>
-                  <h2
-                    id={`flavor-${group.id}`}
-                    className="text-sm font-semibold tracking-wide text-gray-600 uppercase dark:text-gray-400"
-                  >
-                    {group.name || "Captions"}
-                  </h2>
-                  <ul className="mt-3 space-y-3">
-                    {group.captions.map((caption) => (
-                      <li
-                        key={caption.id}
-                        className={`${card} p-4 ${caption.isPublic ? "" : "border-dashed"}`}
-                      >
-                        <p className="text-lg leading-snug font-bold text-pretty break-words">
-                          {caption.content}
-                        </p>
-                        <CaptionActions
-                          caption={caption}
-                          isOwner={image.isOwner}
-                          myVote={votes[caption.id] ?? 0}
-                          signedIn={signedIn}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          )}
-
-          {image.isOwner && groups.length > 0 && <DoneBar captions={image.captions} />}
-        </div>
-      </div>
-    </main>
+      </main>
+    </PageTransition>
   );
 }
 

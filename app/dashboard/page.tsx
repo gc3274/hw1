@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import PageTransition from "@/components/PageTransition";
 import { button, card, focusRing } from "@/components/ui";
 import { requireCompleteProfile, type Profile } from "@/lib/dal";
 import { getMyImages, type MyImage } from "@/lib/images";
@@ -22,56 +23,58 @@ export default async function DashboardPage() {
   const photos = await getMyImages();
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:p-8">
-      <div className="flex items-center gap-4">
-        <Avatar src={profile.avatarUrl} name={profile.displayName} size={64} />
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            Members area
-          </p>
-          <h1 className="text-3xl font-bold break-words">Welcome back, {profile.firstName}</h1>
-        </div>
-      </div>
-
-      <BioCard bio={profile.bio} />
-
-      <section aria-labelledby="photos-heading" className="mt-10">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="photos-heading" className="text-xl font-semibold">
-            Your photos
-          </h2>
-          {photos.length > 0 && (
-            <Link href="/new" className={button("primary", "sm")}>
-              New post
-            </Link>
-          )}
-        </div>
-
-        {photos.length === 0 ? (
-          <div
-            className={`${card} mt-4 flex flex-col gap-3 border-dashed p-4 sm:flex-row sm:items-center sm:justify-between`}
-          >
-            <div>
-              <p className="font-semibold">No photos yet</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Upload one and get captions in four flavors. You pick which ones go public.
-              </p>
-            </div>
-            <Link href="/new" className={button("primary", "sm")}>
-              Make your first post
-            </Link>
+    <PageTransition>
+      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:p-8">
+        <div className="flex items-center gap-4">
+          <Avatar src={profile.avatarUrl} name={profile.displayName} size={64} />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              Members area
+            </p>
+            <h1 className="text-3xl font-bold break-words">Welcome back, {profile.firstName}</h1>
           </div>
-        ) : (
-          <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {photos.map((photo) => (
-              <li key={photo.id}>
-                <PhotoTile photo={photo} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+        </div>
+
+        <BioCard bio={profile.bio} />
+
+        <section aria-labelledby="photos-heading" className="mt-10">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="photos-heading" className="text-xl font-semibold">
+              Your photos
+            </h2>
+            {photos.length > 0 && (
+              <Link href="/new" className={button("primary", "sm")}>
+                New post
+              </Link>
+            )}
+          </div>
+
+          {photos.length === 0 ? (
+            <div
+              className={`${card} mt-4 flex flex-col gap-3 border-dashed p-4 sm:flex-row sm:items-center sm:justify-between`}
+            >
+              <div>
+                <p className="font-semibold">No photos yet</p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  Upload one and get captions in four flavors. You pick which ones go public.
+                </p>
+              </div>
+              <Link href="/new" className={button("primary", "sm")}>
+                Make your first post
+              </Link>
+            </div>
+          ) : (
+            <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {photos.map((photo) => (
+                <li key={photo.id}>
+                  <PhotoTile photo={photo} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    </PageTransition>
   );
 }
 

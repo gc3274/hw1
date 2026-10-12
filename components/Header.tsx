@@ -1,37 +1,42 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { signOut } from "@/app/auth/actions";
+import ShinyText from "@/components/bits/ShinyText";
 import { getProfile, getUser } from "@/lib/dal";
+import type { NavItem } from "@/lib/nav";
 import Avatar from "./Avatar";
 import CaptionIcon from "./CaptionIcon";
-import NavLink from "./NavLink";
+import HeaderShell from "./HeaderShell";
+import MainNav from "./MainNav";
 import SubmitButton from "./SubmitButton";
 import { button, focusRing } from "./ui";
 
+const FEED: NavItem = { href: "/", label: "Feed", exact: true };
+
 export default function Header() {
   return (
-    <header className="border-b border-gray-300 dark:border-gray-700">
-      <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
+    <HeaderShell>
+      <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
         <Link
           href="/"
-          className={`mr-auto inline-flex items-center gap-2 rounded-md text-lg font-bold tracking-tight ${focusRing}`}
+          className={`mr-auto inline-flex items-center gap-2 rounded-md font-display text-lg font-bold tracking-tight ${focusRing}`}
         >
-          <CaptionIcon className="size-6 text-emerald-600 dark:text-emerald-500" />
-          Caption City
+          <CaptionIcon className="size-6 text-lime" />
+          <ShinyText text="Caption City" color="#f4f4f6" shineColor="#c4ff3d" speed={2.5} delay={4} />
         </Link>
         <Suspense fallback={<AccountNavSkeleton />}>
           <AccountNav />
         </Suspense>
       </div>
-    </header>
+    </HeaderShell>
   );
 }
 
 function AccountNavSkeleton() {
   return (
     <div aria-hidden="true" className="flex items-center gap-3">
-      <span className="size-8 animate-pulse rounded-full bg-gray-200 motion-reduce:animate-none dark:bg-gray-800" />
-      <span className="h-8 w-20 animate-pulse rounded-md bg-gray-200 motion-reduce:animate-none dark:bg-gray-800" />
+      <span className="size-8 animate-pulse rounded-full bg-white/10 motion-reduce:animate-none" />
+      <span className="h-8 w-20 animate-pulse rounded-md bg-white/10 motion-reduce:animate-none" />
     </div>
   );
 }
@@ -51,11 +56,7 @@ async function AccountNav() {
   if (!user) {
     return (
       <>
-        <nav aria-label="Main" className="flex gap-1">
-          <NavLink href="/" exact>
-            Feed
-          </NavLink>
-        </nav>
+        <MainNav items={[FEED]} />
         <Link href="/login" className={button("primary", "sm")}>
           Sign in
         </Link>
@@ -69,21 +70,23 @@ async function AccountNav() {
 
   return (
     <>
-      <nav aria-label="Main" className="order-last flex w-full flex-wrap gap-1 sm:order-none sm:w-auto">
-        <NavLink href="/" exact>
-          Feed
-        </NavLink>
-        {profile.isComplete ? (
-          <>
-            <NavLink href="/new">New post</NavLink>
-            <NavLink href="/dashboard">Dashboard</NavLink>
-            <NavLink href="/profile">Profile</NavLink>
-          </>
-        ) : (
-          // /profile sends incomplete accounts to onboarding anyway
-          <NavLink href="/onboarding">Finish setup</NavLink>
-        )}
-      </nav>
+      {profile.isComplete ? (
+        <MainNav
+          className="order-last w-full sm:order-none sm:w-auto"
+          items={[
+            FEED,
+            { href: "/new", label: "New post" },
+            { href: "/dashboard", label: "Dashboard" },
+            { href: "/profile", label: "Profile" },
+          ]}
+        />
+      ) : (
+        // /profile sends incomplete accounts to onboarding anyway
+        <MainNav
+          className="order-last w-full sm:order-none sm:w-auto"
+          items={[FEED, { href: "/onboarding", label: "Finish setup" }]}
+        />
+      )}
       <div className="flex min-w-0 items-center gap-3">
         <Avatar src={profile.avatarUrl} name={profile.displayName} size={32} />
         <span className="hidden max-w-40 truncate text-sm font-medium sm:inline">
