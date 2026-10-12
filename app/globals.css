@@ -91,8 +91,7 @@ body {
 
 .grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.06;
-  mix-blend-mode: overlay;
+  opacity: 0.05;
 }
 
 /* Same colors as the animated aurora: shown under reduced motion and while WebGL loads */
@@ -123,7 +122,11 @@ body {
     rgb(196 255 61 / 0.18) 80%,
     rgb(196 255 61 / 0.85) 100%
   );
-  animation: scan 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scan-line {
+    animation: scan 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
 }
 @keyframes scan {
   from { top: -6rem; }

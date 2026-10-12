@@ -6,7 +6,7 @@ export const focusRing =
 export type ButtonVariant = "primary" | "secondary" | "ghost";
 export type ButtonSize = "md" | "sm";
 
-const buttonBase = `inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
+const buttonBase = `inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full font-medium transition-[background-color,border-color,color,scale] duration-150 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
