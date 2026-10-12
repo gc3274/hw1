@@ -27,7 +27,7 @@ export default function BioField({ value, onChange, error }: BioFieldProps) {
           <span>Shows up on your dashboard.</span>
           <span
             className={`shrink-0 tabular-nums ${
-              remaining <= 20 ? "text-amber-700 dark:text-amber-400" : ""
+              remaining <= 20 ? "text-amber-300" : ""
             }`}
           >
             {value.length}/{BIO_MAX}

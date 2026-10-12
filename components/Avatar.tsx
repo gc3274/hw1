@@ -35,7 +35,7 @@ export default function Avatar({ src, name, size = 40, alt = "", className = "" 
         height={size}
         onError={() => setBrokenSrc(src)}
         style={dimensions}
-        className={`shrink-0 rounded-full bg-gray-100 object-cover dark:bg-gray-800 ${className}`}
+        className={`shrink-0 rounded-full bg-white/10 object-cover ${className}`}
       />
     );
   }
@@ -46,7 +46,7 @@ export default function Avatar({ src, name, size = 40, alt = "", className = "" 
       aria-label={alt || undefined}
       aria-hidden={alt ? undefined : true}
       style={{ ...dimensions, fontSize: Math.round(size * 0.4) }}
-      className={`inline-flex shrink-0 select-none items-center justify-center rounded-full bg-emerald-100 font-semibold leading-none text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 ${className}`}
+      className={`inline-flex shrink-0 select-none items-center justify-center rounded-full bg-lime/15 font-semibold leading-none text-lime ${className}`}
     >
       {initials(name)}
     </span>

@@ -10,7 +10,7 @@ type FieldProps = {
 
 // text-base below sm keeps iOS Safari from zooming in on focus
 const controlClass =
-  "block w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-base placeholder:text-gray-400 focus:border-emerald-600 focus:outline-2 focus:outline-emerald-600/30 aria-invalid:border-red-500 sm:text-sm dark:border-gray-700 dark:placeholder:text-gray-500 dark:aria-invalid:border-red-400";
+  "block w-full rounded-md border border-line bg-transparent px-3 py-2 text-base placeholder:text-muted focus:border-lime focus:outline-2 focus:outline-lime/30 aria-invalid:border-rose sm:text-sm";
 
 function describedBy(id: string, hint: ReactNode, error: string | undefined) {
   const ids = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean);
@@ -30,17 +30,17 @@ function FieldShell({
       <label htmlFor={id} className="block text-sm font-medium">
         {label}
         {optional && (
-          <span className="font-normal text-gray-500 dark:text-gray-400"> (optional)</span>
+          <span className="font-normal text-muted"> (optional)</span>
         )}
       </label>
       <div className="mt-1">{children}</div>
       {hint && (
-        <div id={`${id}-hint`} className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+        <div id={`${id}-hint`} className="mt-1 text-sm text-muted">
           {hint}
         </div>
       )}
       {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-red-600 dark:text-red-400">
+        <p id={`${id}-error`} className="mt-1 text-sm text-rose">
           {error}
         </p>
       )}
