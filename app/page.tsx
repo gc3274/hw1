@@ -1,9 +1,10 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import GooeyNav from "@/components/bits/GooeyNav";
 import CaptionCard from "@/components/CaptionCard";
-import CaptionIcon from "@/components/CaptionIcon";
+import Hero from "@/components/Hero";
 import PageTransition from "@/components/PageTransition";
-import { button, card, focusRing } from "@/components/ui";
+import { button, card, errorBox } from "@/components/ui";
+import WelcomeBand from "@/components/WelcomeBand";
 import {
   FEED_MAX,
   FEED_PAGE_SIZE,
@@ -11,7 +12,7 @@ import {
   parseFeedSort,
   type FeedSort,
 } from "@/lib/captions";
-import { getProfile, getUser, type Profile } from "@/lib/dal";
+import { getProfile, getUser } from "@/lib/dal";
 import { getFeed, getMyVotes } from "@/lib/images";
 
 // Fetch fresh rows on every request instead of freezing them at build time
@@ -44,72 +45,83 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   ]);
   const signedIn = Boolean(user);
   const canPost = Boolean(profile?.isComplete);
+  const preview = feed.error
+    ? []
+    : feed.captions.slice(0, 3).map((c) => ({
+        id: c.id,
+        content: c.content,
+        imageUrl: c.image.url,
+        flavor: c.flavor.name,
+      }));
+  // Signed-in with a failed profile load gets no banner, so the feed keeps the h1
+  const banner = !user ? (
+    <Hero preview={preview} />
+  ) : profile ? (
+    <WelcomeBand profile={profile} />
+  ) : null;
+  const FeedHeading = banner ? "h2" : "h1";
 
   return (
     <PageTransition>
-      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:p-8">
-        {(!user || profile) && <MemberCallout profile={profile} />}
-
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Feed</h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Campus and city photos with AI-written captions, ranked by your votes.
-            </p>
+      <main className="flex-1">
+        {banner}
+        <section
+          id="feed"
+          aria-labelledby="feed-heading"
+          className="mx-auto w-full max-w-5xl scroll-mt-20 px-4 py-10 sm:px-8"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <FeedHeading id="feed-heading" className="font-display text-3xl font-bold tracking-tight">
+                Feed
+              </FeedHeading>
+              <p className="mt-1 text-sm text-muted">
+                Campus and city photos with AI-written captions, ranked by your votes.
+              </p>
+            </div>
+            <GooeyNav
+              label="Sort posts"
+              scroll={false}
+              items={TABS.map((tab) => ({ label: tab.label, href: feedHref(tab.sort) }))}
+              activeIndex={TABS.findIndex((tab) => tab.sort === sort)}
+              className="rounded-full border border-line bg-surface p-1"
+            />
           </div>
-          <nav aria-label="Sort posts">
-            <ul className="flex gap-1 rounded-lg border border-gray-300 p-1 dark:border-gray-700">
-              {TABS.map((tab) => (
-                <li key={tab.sort}>
-                  <Link
-                    href={feedHref(tab.sort)}
-                    aria-current={tab.sort === sort ? "page" : undefined}
-                    className={`block rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors motion-reduce:transition-none hover:bg-gray-100 hover:text-foreground aria-[current=page]:bg-emerald-50 aria-[current=page]:text-emerald-800 dark:text-gray-400 dark:hover:bg-gray-900 dark:aria-[current=page]:bg-emerald-950/60 dark:aria-[current=page]:text-emerald-300 ${focusRing}`}
-                  >
-                    {tab.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
 
-        {feed.error ? (
-          <p
-            role="alert"
-            className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-          >
-            We couldn’t load the feed right now. Please refresh to try again.
-          </p>
-        ) : feed.captions.length === 0 ? (
-          <EmptyFeed sort={sort} canPost={canPost} signedIn={signedIn} />
-        ) : (
-          <>
-            <ul className="mt-6 grid gap-6 sm:grid-cols-2">
-              {feed.captions.map((caption, i) => (
-                <li key={caption.id}>
-                  <CaptionCard
-                    caption={caption}
-                    myVote={votes[caption.id] ?? 0}
-                    signedIn={signedIn}
-                    eager={i < 2}
-                  />
-                </li>
-              ))}
-            </ul>
-            {feed.hasMore && limit < FEED_MAX && (
-              <div className="mt-8 flex justify-center">
-                <Link
-                  href={feedHref(sort, limit + FEED_PAGE_SIZE)}
-                  scroll={false}
-                  className={button("secondary")}
-                >
-                  Show more
-                </Link>
-              </div>
-            )}
-          </>
-        )}
+          {feed.error ? (
+            <p role="alert" className={`${errorBox} mt-6`}>
+              We couldn’t load the feed right now. Please refresh to try again.
+            </p>
+          ) : feed.captions.length === 0 ? (
+            <EmptyFeed sort={sort} canPost={canPost} signedIn={signedIn} />
+          ) : (
+            <>
+              <ul className="mt-6 grid gap-6 sm:grid-cols-2">
+                {feed.captions.map((caption, i) => (
+                  <li key={caption.id}>
+                    <CaptionCard
+                      caption={caption}
+                      myVote={votes[caption.id] ?? 0}
+                      signedIn={signedIn}
+                      eager={i < 2}
+                    />
+                  </li>
+                ))}
+              </ul>
+              {feed.hasMore && limit < FEED_MAX && (
+                <div className="mt-8 flex justify-center">
+                  <Link
+                    href={feedHref(sort, limit + FEED_PAGE_SIZE)}
+                    scroll={false}
+                    className={button("secondary")}
+                  >
+                    Show more
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
+        </section>
       </main>
     </PageTransition>
   );
@@ -143,7 +155,7 @@ function EmptyFeed({
       ) : (
         <>
           <p className="font-semibold">Nothing posted yet</p>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-sm text-muted">
             Snap the Low Library steps, a subway mystery, or your dorm view and be the first.
           </p>
           <div className="mt-4 flex justify-center">
@@ -154,51 +166,5 @@ function EmptyFeed({
         </>
       )}
     </div>
-  );
-}
-
-function MemberCallout({ profile }: { profile: Profile | null }) {
-  let title: string;
-  let body: string;
-  let href: string;
-  let cta: ReactNode;
-
-  if (!profile) {
-    title = "Sign in to vote and post your own photos";
-    body = "Use your Google account to vote on captions and turn your photos into posts.";
-    href = "/login";
-    cta = "Sign in";
-  } else if (!profile.isComplete) {
-    title = "You’re almost in";
-    body = "Add your name to finish setting up, then post your first photo.";
-    href = "/onboarding";
-    cta = "Finish setup";
-  } else {
-    title = "Got a photo? Turn it into a post";
-    body = "Upload a campus or city photo, then post the captions you like best.";
-    href = "/new";
-    cta = (
-      <>
-        New post <span aria-hidden="true">→</span>
-      </>
-    );
-  }
-
-  return (
-    <aside
-      aria-label="Get started"
-      className="mb-8 flex flex-col gap-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-900 dark:bg-emerald-950/40"
-    >
-      <div className="flex items-start gap-3">
-        <CaptionIcon className="mt-0.5 size-6 shrink-0 text-emerald-700 dark:text-emerald-400" />
-        <div className="min-w-0">
-          <p className="font-semibold break-words">{title}</p>
-          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{body}</p>
-        </div>
-      </div>
-      <Link href={href} className={button("primary", "sm")}>
-        {cta}
-      </Link>
-    </aside>
   );
 }
