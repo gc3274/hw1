@@ -33,6 +33,8 @@ export default function VoteButtons({
   const [vote, setVote] = useOptimistic<VoteState>({ myVote, upvotes, downvotes });
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // The arrow just clicked, so only a press pops, not a vote loaded with the page
+  const [pressed, setPressed] = useState<1 | -1 | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const bodyId = useId();
@@ -43,6 +45,7 @@ export default function VoteButtons({
       return;
     }
 
+    setPressed(clicked);
     setError(null);
     startTransition(async () => {
       // Read the optimistic value so quick repeat clicks build on each other
@@ -79,7 +82,7 @@ export default function VoteButtons({
             up ? "bg-lime/15 text-lime hover:bg-lime/25" : `${arrowIdle} hover:text-lime`
           }`}
         >
-          <span aria-hidden="true" key={up ? "on" : "off"} className={up ? "animate-pop motion-reduce:animate-none" : ""}>▲</span>
+          <span aria-hidden="true" key={up ? "on" : "off"} className={up && pressed === 1 ? "animate-pop motion-reduce:animate-none" : ""}>▲</span>
         </button>
         <span
           className={`min-w-8 text-center font-mono text-sm font-semibold tabular-nums ${
@@ -100,7 +103,7 @@ export default function VoteButtons({
             down ? "bg-rose/15 text-rose hover:bg-rose/25" : `${arrowIdle} hover:text-rose`
           }`}
         >
-          <span aria-hidden="true" key={down ? "on" : "off"} className={down ? "animate-pop motion-reduce:animate-none" : ""}>▼</span>
+          <span aria-hidden="true" key={down ? "on" : "off"} className={down && pressed === -1 ? "animate-pop motion-reduce:animate-none" : ""}>▼</span>
         </button>
       </div>
 

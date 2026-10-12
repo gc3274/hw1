@@ -35,7 +35,8 @@ export default function CaptionCard({ caption, myVote, signedIn, eager = false, 
   return (
     <SpotlightCard
       theme="dark"
-      spotlightColor="rgba(196, 255, 61, 0.16)"
+      spotlightColor="#c4ff3d"
+      intensity={0.14}
       className="flex h-full flex-col rounded-2xl"
     >
       <article className="flex h-full flex-col">
