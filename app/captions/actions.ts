@@ -1,8 +1,9 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { getUser } from "@/lib/dal";
-import { isUuid, parseVoteValue, type VoteValue } from "@/lib/captions";
+import { doneHref, isUuid, parseVoteValue, validateCaptionChoices, type VoteValue } from "@/lib/captions";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -87,30 +88,51 @@ export async function castVote(captionId: string, value: VoteValue): Promise<Res
   return { ok: true };
 }
 
-// Post makes a caption public (feed + voting); Unpost hides it again.
-// RLS limits this to the caption's owner; the posted_at stamp comes from a trigger.
-export async function setCaptionPosted(captionId: string, posted: boolean): Promise<Result> {
+const SAVE_FAILED = "Couldn’t save your choices. Please try again.";
+
+// Done on the caption review screen: makes the switched captions public or
+// private in one go, then leaves the page. RLS and the update(is_public) column
+// grant limit this to the caption's owner; posted_at comes from a trigger.
+export async function saveCaptionChoices(
+  imageId: string,
+  toPost: string[],
+  toHide: string[],
+): Promise<{ ok: false; error: string }> {
   const user = await getUser();
   if (!user) return { ok: false, error: "Sign in to post captions." };
-  if (!isUuid(captionId) || typeof posted !== "boolean") {
-    return { ok: false, error: "Invalid request." };
-  }
+
+  const input = validateCaptionChoices(imageId, toPost, toHide);
+  if (!input.ok) return input;
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("captions")
-    .update({ is_public: posted })
-    .eq("id", captionId)
-    .eq("user_id", user.id)
-    .select("id");
+  const apply = async (ids: string[], isPublic: boolean) => {
+    if (ids.length === 0) return true;
+    const { data, error } = await supabase
+      .from("captions")
+      .update({ is_public: isPublic })
+      .in("id", ids)
+      .eq("image_id", input.imageId)
+      .eq("user_id", user.id)
+      .select("id");
+    if (error) {
+      console.error("Saving caption choices failed:", error.message);
+      return false;
+    }
+    // RLS filters silently: fewer rows means some aren't yours or are gone
+    return (data?.length ?? 0) === ids.length;
+  };
 
-  if (error) {
-    console.error("Caption post toggle failed:", error.message);
-    return { ok: false, error: "Couldn't update that caption. Please try again." };
+  const saved = (await apply(input.toPost, true)) && (await apply(input.toHide, false));
+  if (!saved) {
+    // Re-render with what actually stuck so a retry only sends the rest
+    refresh();
+    return { ok: false, error: SAVE_FAILED };
   }
-  // RLS filters silently: zero rows means it isn't yours or doesn't exist
-  if (!data?.length) return { ok: false, error: "Caption not found." };
 
-  refresh();
-  return { ok: true };
+  const { count, error } = await supabase
+    .from("captions")
+    .select("id", { count: "exact", head: true })
+    .eq("image_id", input.imageId)
+    .eq("is_public", true);
+  redirect(doneHref(error ? input.toPost.length > 0 : (count ?? 0) > 0));
 }

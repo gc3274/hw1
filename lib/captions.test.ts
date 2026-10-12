@@ -5,7 +5,11 @@ import {
   CONTEXT_MAX,
   FEED_MAX,
   FEED_PAGE_SIZE,
+  MAX_CAPTION_CHOICES,
   applyVote,
+  diffCaptionChoices,
+  doneButtonLabel,
+  doneHref,
   firstOfEachImage,
   isOwnImagePath,
   isUuid,
@@ -15,6 +19,7 @@ import {
   parseFeedSort,
   parseVoteValue,
   readContext,
+  validateCaptionChoices,
   type Flavor,
   type VoteValue,
 } from "@/lib/captions";
@@ -355,5 +360,104 @@ describe("firstOfEachImage", () => {
 
   it("handles an empty feed", () => {
     expect(firstOfEachImage([])).toEqual([]);
+  });
+});
+
+const A = "11111111-1111-4111-8111-111111111111";
+const B = "22222222-2222-4222-8222-222222222222";
+const C = "33333333-3333-4333-8333-333333333333";
+const IMG = "44444444-4444-4444-8444-444444444444";
+
+describe("diffCaptionChoices", () => {
+  it("returns nothing when the switches match what's saved", () => {
+    expect(diffCaptionChoices({ [A]: false, [B]: true }, { [A]: false, [B]: true })).toEqual({
+      toPost: [],
+      toHide: [],
+    });
+  });
+
+  it("splits changes into posts and hides", () => {
+    expect(
+      diffCaptionChoices({ [A]: false, [B]: true, [C]: false }, { [A]: true, [B]: false, [C]: false }),
+    ).toEqual({ toPost: [A], toHide: [B] });
+  });
+
+  it("ignores staged ids that are not on the page", () => {
+    expect(diffCaptionChoices({ [A]: false }, { [A]: false, [B]: true })).toEqual({
+      toPost: [],
+      toHide: [],
+    });
+  });
+
+  it("treats a caption with no staged value as unchanged", () => {
+    expect(diffCaptionChoices({ [A]: false, [B]: true }, { [A]: true })).toEqual({
+      toPost: [A],
+      toHide: [],
+    });
+  });
+
+  it("after a partial save only the remainder is sent", () => {
+    const staged = { [A]: true, [B]: true };
+    // A saved, B didn't: the refreshed baseline now has A public
+    expect(diffCaptionChoices({ [A]: true, [B]: false }, staged)).toEqual({
+      toPost: [B],
+      toHide: [],
+    });
+  });
+});
+
+describe("doneButtonLabel", () => {
+  it("says Done when nothing changed", () => {
+    expect(doneButtonLabel({ toPost: [], toHide: [] })).toBe("Done");
+  });
+
+  it("counts posts, singular and plural", () => {
+    expect(doneButtonLabel({ toPost: [A], toHide: [] })).toBe("Post 1 caption");
+    expect(doneButtonLabel({ toPost: [A, B, C], toHide: [] })).toBe("Post 3 captions");
+  });
+
+  it("says Save changes whenever something is being hidden", () => {
+    expect(doneButtonLabel({ toPost: [], toHide: [A] })).toBe("Save changes");
+    expect(doneButtonLabel({ toPost: [B], toHide: [A] })).toBe("Save changes");
+  });
+});
+
+describe("doneHref", () => {
+  it("goes to New when anything is public, otherwise the dashboard", () => {
+    expect(doneHref(true)).toBe("/?sort=new");
+    expect(doneHref(false)).toBe("/dashboard");
+  });
+});
+
+describe("validateCaptionChoices", () => {
+  it("accepts valid input and drops duplicate ids", () => {
+    expect(validateCaptionChoices(IMG, [A, A], [B])).toEqual({
+      ok: true,
+      imageId: IMG,
+      toPost: [A],
+      toHide: [B],
+    });
+  });
+
+  it("rejects an empty request", () => {
+    expect(validateCaptionChoices(IMG, [], [])).toEqual({ ok: false, error: "Nothing to save." });
+  });
+
+  it("rejects bad ids and non-arrays", () => {
+    expect(validateCaptionChoices("nope", [A], [])).toMatchObject({ ok: false });
+    expect(validateCaptionChoices(IMG, ["nope"], [])).toMatchObject({ ok: false });
+    expect(validateCaptionChoices(IMG, A, [])).toMatchObject({ ok: false });
+  });
+
+  it("rejects an id in both lists", () => {
+    expect(validateCaptionChoices(IMG, [A], [A])).toMatchObject({ ok: false });
+  });
+
+  it("rejects a list longer than the cap", () => {
+    const many = Array.from(
+      { length: MAX_CAPTION_CHOICES + 1 },
+      (_, i) => `${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`,
+    );
+    expect(validateCaptionChoices(IMG, many, [])).toMatchObject({ ok: false });
   });
 });

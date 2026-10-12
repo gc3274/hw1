@@ -147,3 +147,54 @@ export function firstOfEachImage(items: { image: { id: string } }[]): boolean[] 
     return true;
   });
 }
+
+export const MAX_CAPTION_CHOICES = 50;
+
+export type CaptionChoiceDiff = { toPost: string[]; toHide: string[] };
+
+// What Done has to save: captions whose switch differs from what's stored.
+// Staged values for captions no longer on the page are ignored.
+export function diffCaptionChoices(
+  saved: Record<string, boolean>,
+  staged: Record<string, boolean>,
+): CaptionChoiceDiff {
+  const toPost: string[] = [];
+  const toHide: string[] = [];
+  for (const [id, isPublic] of Object.entries(saved)) {
+    const next = staged[id];
+    if (next === undefined || next === isPublic) continue;
+    (next ? toPost : toHide).push(id);
+  }
+  return { toPost, toHide };
+}
+
+export function doneButtonLabel({ toPost, toHide }: CaptionChoiceDiff): string {
+  if (toHide.length > 0) return "Save changes";
+  if (toPost.length === 1) return "Post 1 caption";
+  if (toPost.length > 1) return `Post ${toPost.length} captions`;
+  return "Done";
+}
+
+// Posted captions show up under New; with nothing posted, the photo lives on the dashboard
+export function doneHref(anyPublic: boolean) {
+  return anyPublic ? "/?sort=new" : "/dashboard";
+}
+
+export function validateCaptionChoices(
+  imageId: unknown,
+  toPost: unknown,
+  toHide: unknown,
+): { ok: true; imageId: string; toPost: string[]; toHide: string[] } | { ok: false; error: string } {
+  const ids = (v: unknown) =>
+    Array.isArray(v) && v.every(isUuid) ? [...new Set(v as string[])] : null;
+  const post = ids(toPost);
+  const hide = ids(toHide);
+
+  if (!isUuid(imageId) || !post || !hide) return { ok: false, error: "Invalid request." };
+  if (post.length === 0 && hide.length === 0) return { ok: false, error: "Nothing to save." };
+  if (post.length > MAX_CAPTION_CHOICES || hide.length > MAX_CAPTION_CHOICES) {
+    return { ok: false, error: "Too many captions at once." };
+  }
+  if (post.some((id) => hide.includes(id))) return { ok: false, error: "Invalid request." };
+  return { ok: true, imageId, toPost: post, toHide: hide };
+}
