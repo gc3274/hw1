@@ -5,18 +5,22 @@ import { unstable_rethrow } from "next/navigation";
 import {
   useEffect,
   useOptimistic,
+  useRef,
   useState,
   useTransition,
   type ChangeEvent,
+  type DragEvent,
   type FormEvent,
 } from "react";
 import { createImage } from "@/app/new/actions";
+import BorderGlow from "@/components/bits/BorderGlow";
 import { TextAreaField } from "@/components/Field";
 import Spinner from "@/components/Spinner";
-import { button, card, focusRing } from "@/components/ui";
+import { button, card } from "@/components/ui";
 import { CONTEXT_MAX, IMAGE_BUCKET } from "@/lib/captions";
 import { PhotoError, resizeToJpeg } from "@/lib/resize-image";
 import { createClient } from "@/lib/supabase/client";
+import WritingOverlay from "./WritingOverlay";
 
 type Stage = "preparing" | "uploading" | "writing";
 
@@ -35,6 +39,8 @@ export default function NewPostForm({ userId }: { userId: string }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   // Optimistic so each stage shows right away and clears itself when the submit ends
   const [stage, setStage] = useOptimistic<Stage | null>(null);
@@ -45,11 +51,31 @@ export default function NewPostForm({ userId }: { userId: string }) {
     return () => URL.revokeObjectURL(preview);
   }, [preview]);
 
-  function onPick(event: ChangeEvent<HTMLInputElement>) {
-    const picked = event.target.files?.[0] ?? null;
+  function pick(picked: File | null) {
     setError(null);
     setFile(picked);
     setPreview(picked ? URL.createObjectURL(picked) : null);
+  }
+
+  function onPick(event: ChangeEvent<HTMLInputElement>) {
+    pick(event.target.files?.[0] ?? null);
+  }
+
+  function onDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragging(false);
+    if (pending) return;
+    const dropped = event.dataTransfer.files?.[0];
+    if (!dropped) return;
+    if (!dropped.type.startsWith("image/")) {
+      setError(UNREADABLE);
+      return;
+    }
+    // Mirror the drop into the input so `required` and form state agree
+    const transfer = new DataTransfer();
+    transfer.items.add(dropped);
+    if (inputRef.current) inputRef.current.files = transfer.files;
+    pick(dropped);
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -111,28 +137,58 @@ export default function NewPostForm({ userId }: { userId: string }) {
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-6">
       <div>
-        <label htmlFor="photo" className="block text-sm font-medium">
+        <p className="block text-sm font-medium" id="photo-label">
           Photo
-        </label>
-        <input
-          id="photo"
-          name="photo"
-          type="file"
-          accept="image/*"
-          required
-          onChange={onPick}
-          disabled={pending}
-          aria-describedby="photo-hint"
-          className={`mt-2 block w-full rounded-md text-sm text-gray-600 file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-gray-300 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-gray-400 dark:file:border-gray-700 dark:hover:file:bg-gray-900 ${focusRing}`}
-        />
-        <p id="photo-hint" className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        </p>
+        <BorderGlow
+          className="mt-2"
+          backgroundColor="#0d0d13"
+          borderRadius={20}
+          colors={["#c4ff3d", "#ff3ea5", "#7c3aed"]}
+        >
+          <label
+            onDragOver={(event) => {
+              event.preventDefault();
+              if (!pending) setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            data-dragging={dragging}
+            // Inset focus ring, since BorderGlow clips anything drawn outside it
+            className="flex min-h-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-line px-6 py-10 text-center transition-colors has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-lime data-[dragging=true]:border-lime data-[dragging=true]:bg-lime/5 motion-reduce:transition-none"
+          >
+            <input
+              ref={inputRef}
+              id="photo"
+              name="photo"
+              type="file"
+              accept="image/*"
+              required
+              onChange={onPick}
+              disabled={pending}
+              aria-labelledby="photo-label"
+              aria-describedby="photo-hint"
+              className="sr-only"
+            />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true" className="size-8 text-lime">
+              <path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="font-medium wrap-anywhere">
+              {file ? file.name : (
+                <>
+                  Drop a photo here or <span className="text-lime underline underline-offset-4">browse</span>
+                </>
+              )}
+            </span>
+            <span className="text-sm text-muted">JPG or PNG · big photos are resized for you</span>
+          </label>
+        </BorderGlow>
+        <p id="photo-hint" className="mt-2 text-sm text-muted">
           Campus, the subway, your dorm, a bodega cat. Skip photos of people who didn’t say yes.
         </p>
 
         {preview && (
-          <div
-            className={`${card} relative mt-4 aspect-[4/5] w-full max-w-sm overflow-hidden bg-gray-100 dark:bg-gray-900`}
-          >
+          <div className={`${card} relative mt-4 aspect-[4/5] w-full max-w-sm overflow-hidden`}>
             <Image
               src={preview}
               alt="Preview of the photo you picked"
@@ -142,6 +198,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
               onError={() => setError(UNREADABLE)}
               className="object-contain"
             />
+            {stage === "writing" && <WritingOverlay />}
           </div>
         )}
       </div>
@@ -162,7 +219,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
             <span>Helps the captions land. It’s never shown publicly.</span>
             <span
               className={`shrink-0 tabular-nums ${
-                remaining <= 20 ? "text-amber-700 dark:text-amber-400" : ""
+                remaining <= 20 ? "text-amber-300" : ""
               }`}
             >
               {note.length}/{CONTEXT_MAX}
@@ -180,7 +237,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
         <p
           role="status"
           className={`min-h-5 text-sm ${
-            error ? "text-red-600 dark:text-red-400" : "text-gray-700 dark:text-gray-300"
+            error ? "text-rose" : "text-fg/80"
           }`}
         >
           {status}

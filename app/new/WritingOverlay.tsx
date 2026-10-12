@@ -1,0 +1,38 @@
+"use client";
+
+import TextType from "@/components/bits/TextType";
+import { usePrefersReducedMotion } from "@/components/fx/hooks";
+
+const LINES = [
+  "Workshopping puns…",
+  "Consulting the bodega cat…",
+  "Asking the Butler night shift…",
+  "Rejecting a joke about the 1 train…",
+  "Running it past a jaded New Yorker…",
+];
+
+// Decorative only: the real progress text lives in the form's role="status" line
+export default function WritingOverlay() {
+  const reduce = usePrefersReducedMotion();
+
+  return (
+    <div aria-hidden="true" className="absolute inset-0 flex items-end bg-gradient-to-t from-ink/90 via-ink/30 to-transparent">
+      {!reduce && <div className="scan-line absolute inset-x-0 h-24" />}
+      <p className="relative w-full p-4 font-mono text-sm text-lime">
+        {reduce ? (
+          LINES[0]
+        ) : (
+          <TextType
+            as="span"
+            text={LINES}
+            typingSpeed={45}
+            deletingSpeed={25}
+            pauseDuration={1400}
+            loop
+            cursorCharacter="▌"
+          />
+        )}
+      </p>
+    </div>
+  );
+}

@@ -25,12 +25,12 @@ export default async function NewPostPage() {
       <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:p-8">
         <Link
           href="/"
-          className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-gray-600 underline-offset-4 hover:underline dark:text-gray-400 ${focusRing}`}
+          className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:underline ${focusRing}`}
         >
           <span aria-hidden="true">←</span> Back to the feed
         </Link>
-        <h1 className="text-3xl font-bold">New post</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+        <h1 className="font-display text-3xl font-bold tracking-tight">New post</h1>
+        <p className="mt-1 text-sm text-muted">
           Upload a photo and get AI-written captions in four flavors. Nothing is public until you post
           it.
         </p>
@@ -40,7 +40,7 @@ export default async function NewPostPage() {
             <h2 id="limit-heading" className="text-lg font-semibold">
               That’s all for today
             </h2>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mt-1 text-sm text-muted">
               You’ve used all {DAILY_GENERATION_LIMIT} photo uploads for the last 24 hours. Come back
               tomorrow for more. In the meantime, go vote on what everyone else posted.
             </p>
@@ -60,7 +60,7 @@ export default async function NewPostPage() {
                 Pick a photo
               </h2>
               {remaining !== null && (
-                <p className="text-sm text-gray-600 tabular-nums dark:text-gray-400">
+                <p className="text-sm text-muted tabular-nums">
                   {remaining} of {DAILY_GENERATION_LIMIT} left today
                 </p>
               )}
