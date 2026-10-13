@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { continueAsGuest } from "@/app/welcome/actions";
+import GoogleSignInButton from "@/app/login/GoogleSignInButton";
 import GradientText from "@/components/bits/GradientText";
 import RotatingText from "@/components/bits/RotatingText";
 import SplitText from "@/components/bits/SplitText";
@@ -12,9 +13,10 @@ import { button } from "./ui";
 
 const HEADLINE = "Make your camera roll";
 const SUBJECTS = ["bodega cat", "subway mystery", "dorm view", "3am Butler"];
+const STEPS = ["Snap a photo", "AI writes the jokes", "Everyone votes"];
 const subjectChip = "inline-flex overflow-hidden rounded-lg bg-lime px-2 text-ink";
 
-// Full-height title screen for signed-out visitors, with the feed right below
+// Full-height title screen on /welcome for first-time signed-out visitors
 export default function Hero({ preview }: { preview: PreviewCaption[] }) {
   return (
     <section
@@ -73,27 +75,41 @@ export default function Hero({ preview }: { preview: PreviewCaption[] }) {
             . AI writes the jokes. Everyone votes.
           </p>
 
-          <div className="mt-10 flex flex-wrap items-center gap-4">
+          <ol aria-label="How it works" className="mt-8 grid gap-3 sm:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <li
+                key={step}
+                style={{ animationDelay: `${1100 + i * 150}ms` }}
+                className="flex animate-rise items-center gap-3 rounded-2xl border border-line bg-ink/50 px-4 py-3 backdrop-blur motion-reduce:animate-none"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-lime font-mono text-sm font-bold text-ink"
+                >
+                  {i + 1}
+                </span>
+                <span className="text-sm font-medium">{step}</span>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-8 flex flex-wrap items-center gap-4">
             <MagnetWrap>
-              <Link href="/login" className={button("primary")}>
-                Sign in with Google
-              </Link>
+              <div className="w-64">
+                <GoogleSignInButton />
+              </div>
             </MagnetWrap>
-            <a href="#feed" className={button("secondary")}>
-              See the feed <span aria-hidden="true">↓</span>
-            </a>
+            {/* A plain form, so it works before (or without) JavaScript */}
+            <form action={continueAsGuest}>
+              <button type="submit" className={button("secondary")}>
+                Look around as a guest <span aria-hidden="true">→</span>
+              </button>
+            </form>
           </div>
         </div>
 
         {preview.length > 0 && <HeroPreview captions={preview} />}
       </div>
-
-      <span
-        aria-hidden="true"
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-bounce text-2xl text-muted motion-reduce:animate-none"
-      >
-        ↓
-      </span>
     </section>
   );
 }

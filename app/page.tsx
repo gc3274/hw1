@@ -2,7 +2,7 @@ import Link from "next/link";
 import AnimatedContent from "@/components/bits/AnimatedContent";
 import GooeyNav from "@/components/bits/GooeyNav";
 import CaptionCard from "@/components/CaptionCard";
-import Hero from "@/components/Hero";
+import JoinBar from "@/components/JoinBar";
 import PageTransition from "@/components/PageTransition";
 import { button, card, errorBox } from "@/components/ui";
 import WelcomeBand from "@/components/WelcomeBand";
@@ -24,6 +24,7 @@ const TABS: { sort: FeedSort; label: string }[] = [
   { sort: "top", label: "Top this week" },
   { sort: "new", label: "New" },
 ];
+const JOIN_BAR_AFTER = 6;
 
 // Top is the default, so it keeps the bare "/" URL
 function feedHref(sort: FeedSort, n?: number) {
@@ -47,20 +48,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   ]);
   const signedIn = Boolean(user);
   const canPost = Boolean(profile?.isComplete);
-  const preview = feed.error
-    ? []
-    : feed.captions.slice(0, 3).map((c) => ({
-        id: c.id,
-        content: c.content,
-        imageUrl: c.image.url,
-        flavor: c.flavor.name,
-      }));
   // Signed-in with a failed profile load gets no banner, so the feed keeps the h1
-  const banner = !user ? (
-    <Hero preview={preview} />
-  ) : profile ? (
-    <WelcomeBand profile={profile} />
-  ) : null;
+  const banner = !user ? <WelcomeBand profile={null} /> : profile ? <WelcomeBand profile={profile} /> : null;
   const FeedHeading = banner ? "h2" : "h1";
   const morphFlags = firstOfEachImage(feed.captions);
 
@@ -101,7 +90,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <>
               <ul className="mt-8 grid gap-6 sm:grid-cols-2">
                 {feed.captions.map((caption, i) => (
-                  <li key={caption.id}>
+                  <li key={caption.id} id={`feed-item-${i}`}>
                     <AnimatedContent delay={(i % 2) * 0.08} className="h-full">
                       <CaptionCard
                         caption={caption}
@@ -114,6 +103,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   </li>
                 ))}
               </ul>
+              {!user && (
+                <JoinBar targetId={`feed-item-${Math.min(JOIN_BAR_AFTER, feed.captions.length) - 1}`} />
+              )}
               {feed.hasMore && limit < FEED_MAX && (
                 <div className="mt-8 flex justify-center">
                   <Link

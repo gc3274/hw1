@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { GUEST_COOKIE, shouldShowWelcome } from "@/lib/guest";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/onboarding", "/new"];
@@ -37,17 +38,31 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isNavigation = request.method === "GET" || request.method === "HEAD";
 
-  // Optimistic check only; pages and every server action re-check through lib/dal.ts.
-  // POSTs (server actions) pass through so the action can answer for itself.
-  if (!signedIn && isNavigation && isProtected(pathname)) {
+  // Redirects keep any refreshed auth cookies and the no-cache headers
+  const redirectTo = (path: string) => {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = path;
     url.search = "";
 
     const redirect = NextResponse.redirect(url);
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
     Object.entries(noCacheHeaders).forEach(([k, v]) => redirect.headers.set(k, v));
     return redirect;
+  };
+
+  // Optimistic check only; pages and every server action re-check through lib/dal.ts.
+  // POSTs (server actions) pass through so the action can answer for itself.
+  if (!signedIn && isNavigation && isProtected(pathname)) return redirectTo("/login");
+
+  if (
+    shouldShowWelcome({
+      pathname,
+      method: request.method,
+      signedIn,
+      hasGuestCookie: request.cookies.has(GUEST_COOKIE),
+    })
+  ) {
+    return redirectTo("/welcome");
   }
 
   // Signed-in users on /login are bounced by the login page itself (via the DAL), not here,
