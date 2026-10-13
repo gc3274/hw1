@@ -98,7 +98,7 @@ export default function CaptionReview({
       <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start">
         <div className="md:sticky md:top-24">{photo}</div>
 
-        <div className="min-w-0 pb-32 sm:pb-0">
+        <div className="min-w-0">
           <h1 className="font-display text-3xl font-bold tracking-tight">Your captions</h1>
           <p className="mt-2 text-sm text-muted">
             Everything starts private. Switch the ones you like to Post, then save with the button at
@@ -136,7 +136,9 @@ export default function CaptionReview({
           )}
 
           {groups.length > 0 && (
-            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:inset-x-auto sm:bottom-4 sm:mt-8 sm:rounded-2xl sm:border sm:pb-3">
+            // Edge to edge on phones (-mx-4 cancels the page padding); at the end of the list it
+            // settles in place, so the footer below stays reachable
+            <div className="sticky bottom-0 z-30 -mx-4 mt-8 border-t border-line bg-ink/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:bottom-4 sm:mx-0 sm:rounded-2xl sm:border sm:pb-3">
               <div className="flex items-center justify-between gap-4">
                 <p className="min-w-0 text-sm text-muted" aria-live="polite">
                   <span className="font-mono font-semibold text-fg tabular-nums">{postedCount}</span>{" "}

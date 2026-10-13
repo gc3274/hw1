@@ -1,5 +1,6 @@
 'use client';
 // Adapted from React Bits (reactbits.dev), MIT + Commons Clause.
+// Changes: cards start centered (CSS transform) before GSAP places them.
 
 import React, {
   Children,
@@ -38,7 +39,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(({ customClass, ...res
   <div
     ref={ref}
     {...rest}
-    className={`absolute top-1/2 left-1/2 rounded-xl [transform-style:preserve-3d] [will-change:transform] [backface-visibility:hidden] ${customClass ?? ''} ${rest.className ?? ''}`.trim()}
+    className={`absolute top-1/2 left-1/2 rounded-xl [transform:translate(-50%,-50%)] [transform-style:preserve-3d] [will-change:transform] [backface-visibility:hidden] ${customClass ?? ''} ${rest.className ?? ''}`.trim()}
   />
 ));
 Card.displayName = 'Card';

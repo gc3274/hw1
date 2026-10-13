@@ -25,6 +25,6 @@ export function button(variant: ButtonVariant = "primary", size: ButtonSize = "m
   return `${buttonBase} ${buttonVariants[variant]} ${buttonSizes[size]}`;
 }
 
-export const card = "rounded-2xl border border-line bg-surface backdrop-blur-sm";
+export const card = "rounded-2xl border border-line bg-surface";
 
 export const errorBox = "rounded-xl border border-rose/40 bg-rose/10 px-4 py-3 text-sm text-rose";
