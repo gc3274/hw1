@@ -367,6 +367,9 @@ const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 const C = "33333333-3333-4333-8333-333333333333";
 const IMG = "44444444-4444-4444-8444-444444444444";
+const MIXED_CASE = "5555aaaa-5555-4BBB-8ccc-5555DDDD5555";
+const uuids = (n: number) =>
+  Array.from({ length: n }, (_, i) => `${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`);
 
 describe("diffCaptionChoices", () => {
   it("returns nothing when the switches match what's saved", () => {
@@ -453,11 +456,27 @@ describe("validateCaptionChoices", () => {
     expect(validateCaptionChoices(IMG, [A], [A])).toMatchObject({ ok: false });
   });
 
-  it("rejects a list longer than the cap", () => {
-    const many = Array.from(
-      { length: MAX_CAPTION_CHOICES + 1 },
-      (_, i) => `${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`,
-    );
-    expect(validateCaptionChoices(IMG, many, [])).toMatchObject({ ok: false });
+  it("rejects an id in both lists even when its case differs", () => {
+    expect(validateCaptionChoices(IMG, [MIXED_CASE], [MIXED_CASE.toLowerCase()])).toEqual({
+      ok: false,
+      error: "Invalid request.",
+    });
+  });
+
+  it("allows exactly the cap and rejects one more", () => {
+    const capped = validateCaptionChoices(IMG, uuids(MAX_CAPTION_CHOICES), []);
+    expect(capped).toMatchObject({ ok: true });
+    expect(capped.ok && capped.toPost).toHaveLength(MAX_CAPTION_CHOICES);
+    expect(validateCaptionChoices(IMG, uuids(MAX_CAPTION_CHOICES + 1), [])).toEqual({
+      ok: false,
+      error: "Too many captions at once.",
+    });
+  });
+
+  it("applies the cap to the hide list too", () => {
+    expect(validateCaptionChoices(IMG, [], uuids(MAX_CAPTION_CHOICES + 1))).toEqual({
+      ok: false,
+      error: "Too many captions at once.",
+    });
   });
 });

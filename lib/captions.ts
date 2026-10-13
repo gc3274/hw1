@@ -185,8 +185,11 @@ export function validateCaptionChoices(
   toPost: unknown,
   toHide: unknown,
 ): { ok: true; imageId: string; toPost: string[]; toHide: string[] } | { ok: false; error: string } {
+  // Lowercased first, so case variants of one id can't slip past the dedupe or the overlap check
   const ids = (v: unknown) =>
-    Array.isArray(v) && v.every(isUuid) ? [...new Set(v as string[])] : null;
+    Array.isArray(v) && v.every(isUuid)
+      ? [...new Set((v as string[]).map((id) => id.toLowerCase()))]
+      : null;
   const post = ids(toPost);
   const hide = ids(toHide);
 
