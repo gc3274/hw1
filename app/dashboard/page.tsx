@@ -37,7 +37,7 @@ export default async function DashboardPage() {
               as="h1"
               text={`Welcome back, ${profile.firstName}`}
               delay={80}
-              className="font-display text-3xl font-bold tracking-tight break-words"
+              className="font-display text-3xl font-bold tracking-tight wrap-anywhere"
             />
           </div>
         </div>

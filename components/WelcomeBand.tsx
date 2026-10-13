@@ -24,7 +24,7 @@ export default function WelcomeBand({ profile }: { profile: Profile }) {
             id="welcome-heading"
             text={title}
             delay={80}
-            className="font-display text-4xl font-bold tracking-tight break-words sm:text-5xl"
+            className="font-display text-4xl font-bold tracking-tight wrap-anywhere sm:text-5xl"
           />
           <p className="mt-3 text-fg/80">{body}</p>
         </div>
