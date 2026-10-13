@@ -147,9 +147,9 @@ export default function AvatarUploader({
           onChange={onPick}
           disabled={pending}
           aria-describedby="avatar-hint"
-          className={`mt-2 block w-full rounded-md text-sm text-gray-600 file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-gray-300 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-gray-400 dark:file:border-gray-700 dark:hover:file:bg-gray-900 ${focusRing}`}
+          className={`mt-2 block w-full rounded-md text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-line file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
         />
-        <p id="avatar-hint" className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p id="avatar-hint" className="mt-2 text-sm text-muted">
           PNG, JPG, or WebP, up to {AVATAR_MAX_BYTES / MB} MB.
           {usingGooglePhoto && currentUrl && !preview
             ? " Right now we’re showing your Google photo."
@@ -180,9 +180,7 @@ export default function AvatarUploader({
 
         <p
           role="status"
-          className={`mt-3 min-h-5 text-sm ${
-            error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
-          }`}
+          className={`mt-3 min-h-5 text-sm ${error ? "text-rose" : "text-lime"}`}
         >
           {error ?? notice}
         </p>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import ErrorHeading from "@/components/fx/ErrorHeading";
 import { button, card } from "@/components/ui";
 
 export default function Error({
@@ -18,9 +19,9 @@ export default function Error({
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-16">
       <div className={`${card} p-6 text-center sm:p-8`}>
-        <h1 className="text-2xl font-bold">Something went wrong</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          We couldn’t load this page. It’s usually a temporary hiccup, so give it another try.
+        <ErrorHeading text="Something broke" />
+        <p className="mt-4 text-sm text-muted">
+          Not your fault. Probably the Wi-Fi in Butler. Give it another try.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button type="button" onClick={() => retry()} className={button("primary")}>

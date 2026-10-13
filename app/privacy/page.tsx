@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <PageTransition>
       <main className="mx-auto w-full max-w-2xl space-y-6 p-8">
-        <h1 className="text-3xl font-bold">Privacy</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Privacy</h1>
         <p>
           Caption City is a class project. When you sign in with Google, we receive your name,
           email address, and profile photo from your Google account.
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
         </section>
         <Link
           href="/"
-          className={`inline-block rounded text-sm text-gray-600 underline-offset-4 hover:underline dark:text-gray-400 ${focusRing}`}
+          className={`inline-block rounded text-sm text-muted underline-offset-4 hover:underline ${focusRing}`}
         >
           Back to the feed
         </Link>

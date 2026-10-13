@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import BlurText from "@/components/bits/BlurText";
 import CaptionIcon from "@/components/CaptionIcon";
+import AuroraBackdrop from "@/components/fx/AuroraBackdrop";
 import PageTransition from "@/components/PageTransition";
-import { card, focusRing } from "@/components/ui";
+import { card, errorBox, focusRing } from "@/components/ui";
 import { getUser } from "@/lib/dal";
 import GoogleSignInButton from "./GoogleSignInButton";
 
@@ -20,21 +22,24 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <PageTransition>
-      <main className="flex flex-1 items-center justify-center px-4 py-12 sm:p-8">
-        <div className={`${card} w-full max-w-sm p-6 text-center sm:p-8`}>
-          <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+      <main className="relative isolate flex flex-1 items-center justify-center overflow-hidden px-4 py-16 sm:p-8">
+        <AuroraBackdrop />
+        <div className={`${card} relative w-full max-w-sm bg-ink/60! p-6 text-center backdrop-blur-xl sm:p-8`}>
+          <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-lime/15 text-lime">
             <CaptionIcon className="size-7" />
           </span>
-          <h1 className="mt-4 text-2xl font-bold">Sign in to Caption City</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <BlurText
+            as="h1"
+            text="Sign in to Caption City"
+            delay={80}
+            className="mt-4 justify-center font-display text-2xl font-bold tracking-tight"
+          />
+          <p className="mt-2 text-sm text-muted">
             Vote on the funniest captions and turn your own photos into posts.
           </p>
 
           {failed && (
-            <div
-              role="alert"
-              className="mt-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-left text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-            >
+            <div role="alert" className={`${errorBox} mt-6 text-left`}>
               That sign-in didn’t go through. Please try again.
             </div>
           )}
@@ -43,13 +48,13 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             <GoogleSignInButton />
           </div>
 
-          <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-4 text-xs text-muted">
             We use the name, email, and photo on your Google account to set up your profile.
           </p>
 
           <Link
             href="/"
-            className={`mt-6 inline-block rounded-sm text-sm font-medium text-gray-600 underline-offset-4 hover:text-foreground hover:underline dark:text-gray-400 ${focusRing}`}
+            className={`mt-6 inline-block rounded-sm text-sm font-medium text-muted underline-offset-4 hover:text-foreground hover:underline ${focusRing}`}
           >
             <span aria-hidden="true">← </span>
             Back to the feed

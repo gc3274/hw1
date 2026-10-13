@@ -19,13 +19,13 @@ export default async function ProfilePage() {
       <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:p-8">
         <Link
           href="/dashboard"
-          className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-gray-600 underline-offset-4 hover:underline dark:text-gray-400 ${focusRing}`}
+          className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:underline ${focusRing}`}
         >
           <span aria-hidden="true">←</span> Back to dashboard
         </Link>
-        <h1 className="text-3xl font-bold">Your profile</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Your profile</h1>
         {email && (
-          <p className="mt-1 text-sm break-words text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-sm break-words text-muted">
             Signed in with Google as {email}
           </p>
         )}

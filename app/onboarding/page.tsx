@@ -33,15 +33,17 @@ export default async function OnboardingPage() {
               size={56}
             />
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold">Welcome to Caption City</h1>
+              <h1 className="font-display text-2xl font-bold tracking-tight">
+                Welcome to Caption City
+              </h1>
               {email && (
-                <p className="truncate text-sm text-gray-600 dark:text-gray-400">
+                <p className="truncate text-sm text-muted">
                   Signed in as {email}
                 </p>
               )}
             </div>
           </div>
-          <p className="mt-6 text-sm text-gray-700 dark:text-gray-300">
+          <p className="mt-6 text-sm text-fg/80">
             Tell us what to call you. We filled in what Google shared, so change anything you
             like.
           </p>

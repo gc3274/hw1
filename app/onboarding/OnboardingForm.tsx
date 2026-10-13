@@ -68,7 +68,7 @@ export default function OnboardingForm({ firstName, lastName, bio }: OnboardingF
           Continue to your dashboard
         </SubmitButton>
         {/* Stays mounted (just empty) so screen readers pick up new messages */}
-        <p role="status" className="mt-3 text-sm text-red-600 empty:mt-0 dark:text-red-400">
+        <p role="status" className="mt-3 text-sm text-rose empty:mt-0">
           {!state.ok && state.message ? state.message : null}
         </p>
       </div>

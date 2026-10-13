@@ -22,8 +22,6 @@
   --animate-pop: pop 0.3s cubic-bezier(0.3, 1.6, 0.5, 1);
   --animate-star-movement-bottom: star-movement-bottom linear infinite alternate;
   --animate-star-movement-top: star-movement-top linear infinite alternate;
-  --animate-glitch-after: glitch var(--after-duration) infinite linear alternate-reverse;
-  --animate-glitch-before: glitch var(--before-duration) infinite linear alternate-reverse;
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(24px); }
@@ -60,6 +58,9 @@
 @theme inline {
   --color-background: var(--color-ink);
   --color-foreground: var(--color-fg);
+  /* Inline so the durations resolve on the GlitchText element, not on :root */
+  --animate-glitch-after: glitch var(--after-duration) infinite linear alternate-reverse;
+  --animate-glitch-before: glitch var(--before-duration) infinite linear alternate-reverse;
 }
 
 :root {

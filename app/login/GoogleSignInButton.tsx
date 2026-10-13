@@ -67,12 +67,12 @@ export default function GoogleSignInButton() {
         type="button"
         onClick={signIn}
         disabled={pending}
-        className={`flex w-full cursor-pointer items-center justify-center gap-3 rounded-md border border-[#747775] bg-white px-4 py-2.5 text-sm font-medium text-[#1f1f1f] transition-colors hover:bg-[#f2f2f2] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-70 dark:border-[#8e918f] dark:bg-[#131314] dark:text-[#e3e3e3] dark:hover:bg-[#1f1f20] ${focusRing}`}
+        className={`flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#8e918f] bg-[#131314] px-4 py-2.5 text-sm font-medium text-[#e3e3e3] transition-colors hover:bg-[#1f1f20] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-70 ${focusRing}`}
       >
         {pending ? <Spinner className="size-5" /> : <GoogleLogo />}
         {pending ? "Redirecting to Google…" : "Sign in with Google"}
       </button>
-      <p role="alert" className="mt-3 text-sm text-red-600 empty:mt-0 dark:text-red-400">
+      <p role="alert" className="mt-3 text-sm text-rose empty:mt-0">
         {error}
       </p>
     </div>

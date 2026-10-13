@@ -69,9 +69,7 @@ export default function ProfileForm({ firstName, lastName, bio }: ProfileFormPro
         <SubmitButton pendingText="Saving…">Save changes</SubmitButton>
         <p
           role="status"
-          className={`text-sm ${
-            state.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-          }`}
+          className={`text-sm ${state.ok ? "text-lime" : "text-rose"}`}
         >
           {state.message && editedAfter !== state ? state.message : null}
         </p>
