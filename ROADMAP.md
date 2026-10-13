@@ -32,13 +32,14 @@ A dark "night city" look with motion throughout, built on React Bits components.
 - [x] Animation libraries and motion-preference helpers (reduced motion and touch screens get no effects)
 - [x] Dark theme, fonts (Bricolage Grotesque, Geist, Geist Mono), shared button and card styles
 - [x] Glass header with gooey nav, click sparks, smooth page transitions
-- [ ] Animated title screen and signed-in welcome band
-- [ ] Feed cards with spotlight hover, scroll reveals, rolling vote scores
-- [ ] Caption review: Private/Post switch per caption, saved all at once with Done; fix cut-off boxes
-- [ ] Drag-and-drop photo picker and a fun "writing captions" screen
-- [ ] Login, dashboard counters, 404 and error pages, restyle of the remaining pages
-- [ ] Welcome screen for first-time visitors with "Look around as a guest", a guest banner, and a sign-in bar on the feed
-- [ ] Full check on phone and desktop, with and without reduced motion
+- [x] Animated title screen and signed-in welcome band
+- [x] Feed cards with spotlight hover, scroll reveals, rolling vote scores
+- [x] Caption review: Private/Post switch per caption, saved all at once with Done; fix cut-off boxes
+- [x] Drag-and-drop photo picker and a fun "writing captions" screen
+- [x] Login, dashboard counters, 404 and error pages, restyle of the remaining pages
+- [x] Welcome screen for first-time visitors with "Look around as a guest", a guest banner, and a sign-in bar on the feed
+- [x] Full check on phone and desktop, with and without reduced motion
+- [ ] Local test by the product owner, then merge to `main`
 
 ---
 
