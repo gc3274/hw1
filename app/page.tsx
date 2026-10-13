@@ -103,9 +103,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   </li>
                 ))}
               </ul>
-              {!user && (
-                <JoinBar targetId={`feed-item-${Math.min(JOIN_BAR_AFTER, feed.captions.length) - 1}`} />
-              )}
               {feed.hasMore && limit < FEED_MAX && (
                 <div className="mt-8 flex justify-center">
                   <Link
@@ -116,6 +113,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                     Show more
                   </Link>
                 </div>
+              )}
+              {!user && (
+                <JoinBar targetId={`feed-item-${Math.min(JOIN_BAR_AFTER, feed.captions.length) - 1}`} />
               )}
             </>
           )}

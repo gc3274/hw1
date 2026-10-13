@@ -49,9 +49,9 @@ export default function JoinBar({ targetId }: { targetId: string }) {
       aria-label="Sign in prompt"
       data-visible={visible}
       inert={!visible}
-      className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex translate-y-6 justify-center px-4 opacity-0 transition-[opacity,translate] duration-500 motion-reduce:transition-none data-[visible=true]:pointer-events-auto data-[visible=true]:translate-y-0 data-[visible=true]:opacity-100"
+      className="group pointer-events-none sticky bottom-4 z-30 flex translate-y-6 justify-center px-4 opacity-0 transition-[opacity,translate] duration-500 motion-reduce:transition-none data-[visible=true]:translate-y-0 data-[visible=true]:opacity-100"
     >
-      <div className="flex w-full max-w-xl flex-wrap items-center gap-3 rounded-2xl border border-line bg-ink/85 p-3 pl-5 shadow-2xl backdrop-blur-md">
+      <div className="flex w-full max-w-xl flex-wrap items-center gap-3 rounded-2xl border border-line bg-ink/85 p-3 pl-5 shadow-2xl backdrop-blur-md group-data-[visible=true]:pointer-events-auto">
         <p className="mr-auto text-sm font-medium">
           Like what you see? <span className="text-muted">Sign in to vote.</span>
         </p>
