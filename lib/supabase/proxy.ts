@@ -53,6 +53,7 @@ export async function updateSession(request: NextRequest) {
   // Optimistic check only; pages and every server action re-check through lib/dal.ts.
   // POSTs (server actions) pass through so the action can answer for itself.
   if (!signedIn && isNavigation && isProtected(pathname)) return redirectTo("/login");
+  if (signedIn && isNavigation && pathname === "/welcome") return redirectTo("/");
 
   if (
     shouldShowWelcome({
@@ -65,7 +66,9 @@ export async function updateSession(request: NextRequest) {
     return redirectTo("/welcome");
   }
 
-  // Signed-in users on /login are bounced by the login page itself (via the DAL), not here,
-  // so getClaims() and getUser() disagreeing can never cause a redirect loop.
+  // The proxy alone decides "/" -> /welcome and /welcome -> "/" from the one signedIn value,
+  // so the two can't disagree. Signed-in users on /login are bounced to "/" by the login page
+  // itself (via the DAL); if getUser() and getClaims() disagree, that lands on /welcome at
+  // worst, never in a loop.
   return response;
 }

@@ -6,12 +6,13 @@ import { usePrefersReducedMotion } from "@/components/fx/hooks";
 
 export type PreviewCaption = { id: string; content: string; imageUrl: string; flavor: string };
 
-// Decorative: the same captions are in the feed right below, so it's hidden from screen readers
+// Decorative preview of real captions on /welcome, so it's hidden from screen readers.
+// Nudged left on phones so the cards fanned out to the right stay on screen.
 export default function HeroPreview({ captions }: { captions: PreviewCaption[] }) {
   const reduce = usePrefersReducedMotion();
 
   return (
-    <div aria-hidden="true" className="relative mx-auto h-[380px] w-[280px] sm:h-[440px] sm:w-[330px]">
+    <div aria-hidden="true" className="relative mx-auto h-[380px] w-[280px] max-sm:-translate-x-6 sm:h-[440px] sm:w-[330px]">
       <CardSwap
         key={captions.map((c) => c.id).join()}
         width="100%"

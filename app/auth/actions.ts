@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { GUEST_COOKIE } from "@/lib/guest";
 import { createClient } from "@/lib/supabase/server";
 
 export async function signOut() {
@@ -11,5 +13,6 @@ export async function signOut() {
   if (error) console.error("Sign out failed:", error.message);
 
   revalidatePath("/", "layout");
-  redirect("/");
+  // Non-guests go straight to /welcome; via "/" they'd see it under the feed's URL
+  redirect((await cookies()).has(GUEST_COOKIE) ? "/" : "/welcome");
 }

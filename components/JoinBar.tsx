@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import GoogleSignInButton from "@/app/login/GoogleSignInButton";
 import { focusRing } from "./ui";
 
@@ -19,6 +19,7 @@ function wasDismissed() {
 // for the rest of the browser session.
 export default function JoinBar({ targetId }: { targetId: string }) {
   const [visible, setVisible] = useState(false);
+  const barRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const target = document.getElementById(targetId);
@@ -36,6 +37,10 @@ export default function JoinBar({ targetId }: { targetId: string }) {
   }, [targetId]);
 
   function dismiss() {
+    // The bar turns inert, so keyboard focus would otherwise drop to <body>
+    if (barRef.current?.contains(document.activeElement)) {
+      document.getElementById("feed-heading")?.focus({ preventScroll: true });
+    }
     setVisible(false);
     try {
       sessionStorage.setItem(DISMISSED_KEY, "1");
@@ -46,10 +51,11 @@ export default function JoinBar({ targetId }: { targetId: string }) {
 
   return (
     <aside
+      ref={barRef}
       aria-label="Sign in prompt"
       data-visible={visible}
       inert={!visible}
-      className="group pointer-events-none sticky bottom-4 z-30 flex translate-y-6 justify-center px-4 opacity-0 transition-[opacity,translate] duration-500 motion-reduce:transition-none data-[visible=true]:translate-y-0 data-[visible=true]:opacity-100"
+      className="group pointer-events-none sticky bottom-4 z-30 mt-8 flex translate-y-6 justify-center px-4 opacity-0 transition-[opacity,translate] duration-500 motion-reduce:transition-none data-[visible=true]:translate-y-0 data-[visible=true]:opacity-100"
     >
       <div className="flex w-full max-w-xl flex-wrap items-center gap-3 rounded-2xl border border-line bg-ink/85 p-3 pl-5 shadow-2xl backdrop-blur-md group-data-[visible=true]:pointer-events-auto">
         <p className="mr-auto text-sm font-medium">

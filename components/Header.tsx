@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { Suspense } from "react";
 import { signOut } from "@/app/auth/actions";
 import ShinyText from "@/components/bits/ShinyText";
 import { getProfile, getUser } from "@/lib/dal";
+import { GUEST_COOKIE } from "@/lib/guest";
 import type { NavItem } from "@/lib/nav";
 import Avatar from "./Avatar";
 import CaptionIcon from "./CaptionIcon";
@@ -54,9 +56,11 @@ function SignOutForm() {
 async function AccountNav() {
   const user = await getUser();
   if (!user) {
+    // First-time visitors are sent from "/" to /welcome, so Feed is only offered to guests
+    const isGuest = (await cookies()).has(GUEST_COOKIE);
     return (
       <>
-        <MainNav items={[FEED]} />
+        {isGuest && <MainNav items={[FEED]} />}
         <Link href="/login" className={button("primary", "sm")}>
           Sign in
         </Link>

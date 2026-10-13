@@ -64,7 +64,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         >
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <FeedHeading id="feed-heading" className="font-display text-3xl font-bold tracking-tight">
+              {/* Focusable from script only: the join bar hands focus here when it closes */}
+              <FeedHeading
+                id="feed-heading"
+                tabIndex={-1}
+                className="font-display text-3xl font-bold tracking-tight focus:outline-none"
+              >
                 Feed
               </FeedHeading>
               <p className="mt-1 text-sm text-muted">
