@@ -46,7 +46,11 @@ export default function CaptionReview({
   // Reloading or closing the tab with unsaved switches asks first
   useEffect(() => {
     if (!dirty) return;
-    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Older browsers only ask when returnValue is set
+      event.returnValue = "";
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
@@ -154,7 +158,8 @@ export default function CaptionReview({
                   </Link>
                 )}
               </div>
-              {error && (
+              {/* Only while there's something left to save */}
+              {dirty && error && (
                 <p role="alert" className="mt-2 text-sm text-rose">
                   {error}
                 </p>

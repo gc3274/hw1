@@ -37,6 +37,8 @@ export default function CaptionCard({ caption, myVote, signedIn, eager = false, 
       theme="dark"
       spotlightColor="#c4ff3d"
       intensity={0.14}
+      // Only the card under the pointer wakes up, not every card in the feed
+      proximity={0}
       className="flex h-full flex-col rounded-2xl"
     >
       <article className="flex h-full flex-col">

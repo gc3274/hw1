@@ -1,5 +1,8 @@
 'use client';
 // Adapted from React Bits (reactbits.dev), MIT + Commons Clause.
+// Changes: the frame loop runs only while the canvas is on screen and stops
+// about 2s after the last pointer move (the dye has faded by then); the next
+// move or press starts it again.
 import React, { useEffect, useRef } from 'react';
 
 interface ColorRGB {
@@ -886,6 +889,8 @@ export default function SplashCursor({
     let frame = 0;
     let running = false;
     let visible = true;
+    let lastInput = 0;
+    const IDLE_MS = 2000;
 
     function updateFrame() {
       const dt = calcDeltaTime();
@@ -894,7 +899,17 @@ export default function SplashCursor({
       applyInputs();
       step(dt);
       render(null);
+      // Idle: the dye has faded, so stop drawing until the pointer moves again
+      if (performance.now() - lastInput > IDLE_MS) running = false;
       if (running) frame = requestAnimationFrame(updateFrame);
+    }
+
+    // `running` guards against a second loop starting alongside the first
+    function startLoop() {
+      if (running || !visible) return false;
+      running = true;
+      frame = requestAnimationFrame(updateFrame);
+      return true;
     }
 
     function calcDeltaTime() {
@@ -1248,18 +1263,19 @@ export default function SplashCursor({
     const onMouseDown = (e: MouseEvent) => {
       const p = toCanvas(e);
       if (!p.inside) return;
+      lastInput = performance.now();
       updatePointerDownData(pointers[0], -1, p.x, p.y);
       clickSplat(pointers[0]);
+      startLoop();
     };
 
     const onMouseMove = (e: MouseEvent) => {
       const p = toCanvas(e);
       if (!p.inside) return;
+      lastInput = performance.now();
       const pointer = pointers[0];
-      if (!running && visible) {
-        running = true;
+      if (startLoop()) {
         updatePointerMoveData(pointer, p.x, p.y, generateColor());
-        frame = requestAnimationFrame(updateFrame);
         return;
       }
       updatePointerMoveData(pointer, p.x, p.y, pointer.color);

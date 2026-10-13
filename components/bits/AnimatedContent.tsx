@@ -1,8 +1,9 @@
 "use client";
 // Adapted from React Bits (reactbits.dev), MIT + Commons Clause.
-// Changes: visible in the server HTML (no "invisible" class); skips anything
-// already on screen at mount and everything under reduced motion; no snap
-// container lookup; trimmed to the props this app uses.
+// Changes: visible in the server HTML (no "invisible" class); runs once per
+// mount with the props it mounted with; skips anything already on screen at
+// mount and everything under reduced motion; no snap container lookup;
+// trimmed to the props this app uses.
 
 import { useEffect, useRef, type HTMLAttributes, type ReactNode } from "react";
 import { gsap } from "gsap";
@@ -30,10 +31,13 @@ export default function AnimatedContent({
   ...props
 }: AnimatedContentProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // Read once: a vote reorder changes `delay`, and that mustn't replay the reveal
+  const config = useRef({ distance, duration, ease, delay, threshold });
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const { distance, duration, ease, delay, threshold } = config.current;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     // Already on screen at load: leave it alone so nothing flickers
     if (el.getBoundingClientRect().top < window.innerHeight) return;
@@ -52,7 +56,7 @@ export default function AnimatedContent({
       tween.kill();
       gsap.set(el, { clearProps: "transform,opacity" });
     };
-  }, [distance, duration, ease, delay, threshold]);
+  }, []);
 
   return (
     <div ref={ref} className={className} {...props}>

@@ -1,5 +1,6 @@
 'use client';
 // Adapted from React Bits (reactbits.dev), MIT + Commons Clause.
+// Changes: the cursor-blink tween is killed on unmount and when its props change.
 
 import { type ElementType, useEffect, useRef, useState, createElement, useMemo, useCallback } from 'react';
 import { gsap } from 'gsap';
@@ -88,13 +89,16 @@ const TextType = ({
   useEffect(() => {
     if (showCursor && cursorRef.current) {
       gsap.set(cursorRef.current, { opacity: 1 });
-      gsap.to(cursorRef.current, {
+      const blink = gsap.to(cursorRef.current, {
         opacity: 0,
         duration: cursorBlinkDuration,
         repeat: -1,
         yoyo: true,
         ease: 'power2.inOut'
       });
+      return () => {
+        blink.kill();
+      };
     }
   }, [showCursor, cursorBlinkDuration]);
 

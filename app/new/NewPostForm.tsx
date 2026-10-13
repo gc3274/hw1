@@ -53,6 +53,19 @@ export default function NewPostForm({ userId }: { userId: string }) {
     return () => URL.revokeObjectURL(preview);
   }, [preview]);
 
+  // A file dropped just outside the dropzone would otherwise open in the tab and lose the form
+  useEffect(() => {
+    const blockFileDrop = (event: globalThis.DragEvent) => {
+      if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+    };
+    window.addEventListener("dragover", blockFileDrop);
+    window.addEventListener("drop", blockFileDrop);
+    return () => {
+      window.removeEventListener("dragover", blockFileDrop);
+      window.removeEventListener("drop", blockFileDrop);
+    };
+  }, []);
+
   function pick(picked: File | null) {
     setError(null);
     setFile(picked);
@@ -158,7 +171,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
         onChange={onPick}
         disabled={pending}
         aria-labelledby="photo-label"
-        aria-describedby="photo-hint"
+        aria-describedby="photo-format photo-hint"
         className="sr-only"
       />
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true" className="size-8 text-lime">
@@ -171,7 +184,9 @@ export default function NewPostForm({ userId }: { userId: string }) {
           </>
         )}
       </span>
-      <span className="text-sm text-muted">JPG or PNG · big photos are resized for you</span>
+      <span id="photo-format" className="text-sm text-muted">
+        JPG or PNG · big photos are resized for you
+      </span>
     </label>
   );
 
@@ -187,6 +202,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
             backgroundColor="#0d0d13"
             borderRadius={20}
             glowRadius={24}
+            glowColor="78 100 62"
             colors={["#c4ff3d", "#ff3ea5", "#7c3aed"]}
           >
             {dropzone}

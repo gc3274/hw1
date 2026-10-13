@@ -12,7 +12,11 @@ export default function ErrorHeading({ text }: { text: string }) {
         {reduce ? (
           <span className="text-5xl font-black">{text}</span>
         ) : (
-          <GlitchText speed={0.6} className="text-[clamp(2.5rem,9vw,5rem)]!">
+          <GlitchText
+            speed={0.6}
+            // Still before hydration too, when the hook can't know about reduced motion yet
+            className="text-[clamp(2.5rem,9vw,4.25rem)]! motion-reduce:before:animate-none motion-reduce:after:animate-none"
+          >
             {text}
           </GlitchText>
         )}

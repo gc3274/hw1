@@ -115,6 +115,16 @@ body {
   to { opacity: 1; }
 }
 
+/* Without JavaScript, BlurText's words would stay at their hidden starting style */
+@media (scripting: none) {
+  .blur-text,
+  .blur-text span {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
+
 /* Scan line over the photo while captions are being written */
 .scan-line {
   background: linear-gradient(

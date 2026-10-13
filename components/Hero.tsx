@@ -75,7 +75,8 @@ export default function Hero({ preview }: { preview: PreviewCaption[] }) {
             . AI writes the jokes. Everyone votes.
           </p>
 
-          <ol aria-label="How it works" className="mt-8 grid gap-3 sm:grid-cols-3">
+          {/* role="list": Safari drops list semantics once list-style is none */}
+          <ol role="list" aria-label="How it works" className="mt-8 grid gap-3 sm:grid-cols-3">
             {STEPS.map((step, i) => (
               <li
                 key={step}

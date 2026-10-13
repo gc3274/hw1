@@ -1,9 +1,9 @@
 "use client";
 // Adapted from React Bits (reactbits.dev), MIT + Commons Clause.
 // Changes: Next <Link> navigation, active item controlled by the caller,
-// aria-current and focus ring, styles in globals.css (.gooey-nav), an SVG
-// alpha goo filter instead of the black-backdrop blur/contrast trick, no
-// particles under reduced motion.
+// aria-current and a focus ring offset clear of the active pill, styles in
+// globals.css (.gooey-nav), an SVG alpha goo filter instead of the
+// black-backdrop blur/contrast trick, no particles under reduced motion.
 
 import Link from "next/link";
 import { useEffect, useId, useRef } from "react";
@@ -160,7 +160,7 @@ export default function GooeyNav({
                 href={item.href}
                 scroll={scroll}
                 aria-current={index === activeIndex ? "page" : undefined}
-                className={`inline-block rounded-full px-3.5 py-1.5 text-sm font-medium ${focusRing}`}
+                className={`inline-block rounded-full px-3.5 py-1.5 text-sm font-medium ${focusRing} focus-visible:outline-offset-4`}
               >
                 {item.label}
               </Link>

@@ -2,14 +2,26 @@
 
 import { useEffect, useState, useSyncExternalStore, type RefObject } from "react";
 
+// One MediaQueryList per query, so snapshots don't call matchMedia on every render
+const mediaQueryLists = new Map<string, MediaQueryList>();
+
+function mediaQueryList(query: string) {
+  let list = mediaQueryLists.get(query);
+  if (!list) {
+    list = window.matchMedia(query);
+    mediaQueryLists.set(query, list);
+  }
+  return list;
+}
+
 function mediaQueryStore(query: string, serverValue: boolean) {
   return {
     subscribe(onChange: () => void) {
-      const list = window.matchMedia(query);
+      const list = mediaQueryList(query);
       list.addEventListener("change", onChange);
       return () => list.removeEventListener("change", onChange);
     },
-    getSnapshot: () => window.matchMedia(query).matches,
+    getSnapshot: () => mediaQueryList(query).matches,
     getServerSnapshot: () => serverValue,
   };
 }
@@ -49,9 +61,11 @@ export function useInView(ref: RefObject<Element | null>, rootMargin = "0px") {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
-      rootMargin,
-    });
+    // Entries are queued in order, so the last one is the current state
+    const observer = new IntersectionObserver(
+      (entries) => setInView(entries[entries.length - 1].isIntersecting),
+      { rootMargin },
+    );
     observer.observe(el);
     return () => observer.disconnect();
   }, [ref, rootMargin]);
