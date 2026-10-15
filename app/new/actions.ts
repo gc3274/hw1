@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { requireCompleteProfile } from "@/lib/dal";
-import { generateCaptions } from "@/lib/gemini";
-import { countRecentGenerations, getFlavors } from "@/lib/images";
+import { generateCaptions, generateRoasts } from "@/lib/gemini";
+import { countRecentGenerations, getCritics, getFlavors } from "@/lib/images";
 import {
   DAILY_GENERATION_LIMIT,
   IMAGE_BUCKET,
@@ -11,6 +11,7 @@ import {
   isOwnImagePath,
   readContext,
 } from "@/lib/captions";
+import { parseTopic, type Topic } from "@/lib/roasts";
 import { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -19,6 +20,15 @@ type Failure = { ok: false; error: string };
 type StepResult = { ok: true; id: string } | (Failure & { keepUpload?: boolean });
 
 const GENERIC_ERROR = "Couldn't write captions for that photo. Please try again.";
+
+const ROAST_ERROR = "The critics couldn't judge that photo. Please try again.";
+
+const ROAST_REASON_COPY = {
+  rejected: "Critics only judge things you made: the dish, the drawing, the room or the fit. Try another photo.",
+  busy: "The critics are busy, try again in a minute.",
+  not_configured: ROAST_ERROR,
+  failed: ROAST_ERROR,
+} as const;
 
 const REASON_COPY = {
   rejected: "We can't caption that photo. Try a different one.",
@@ -55,6 +65,7 @@ async function captionUpload(
   userId: string,
   path: string,
   context: string,
+  topic: Topic | null,
   created: { imageId: string | null },
 ): Promise<StepResult> {
   // Log the attempt before counting, so parallel requests and failed runs
@@ -90,35 +101,22 @@ async function captionUpload(
     return { ok: false, error: "That file isn't a photo we can read. Please try another." };
   }
 
+  const imageData = { data: Buffer.from(bytes).toString("base64"), mimeType: "image/jpeg" as const };
+  if (topic) return roastUpload(supabase, path, context, topic, imageData, created);
+
   const flavors = await getFlavors();
   if (flavors.length === 0) return { ok: false, error: GENERIC_ERROR };
 
-  const result = await generateCaptions({
-    image: { data: Buffer.from(bytes).toString("base64"), mimeType: "image/jpeg" },
-    context,
-    flavors,
-  });
+  const result = await generateCaptions({ image: imageData, context, flavors });
   if (!result.ok) return { ok: false, error: REASON_COPY[result.reason] };
 
-  // Column grants only allow image_path and context; id and user_id come from defaults
-  const { data: image, error: imageError } = await supabase
-    .from("images")
-    .insert({ image_path: path, context: context || null })
-    .select("id")
-    .single<{ id: string }>();
-  if (imageError?.code === "23505") {
-    return { ok: false, error: "That photo is already posted.", keepUpload: true };
-  }
-  if (imageError || !image) {
-    console.error("Image save failed:", imageError?.message ?? "no row");
-    return { ok: false, error: "Couldn't save your post. Please try again." };
-  }
-  created.imageId = image.id;
+  const saved = await saveImage(supabase, path, context, null, created);
+  if (!saved.ok) return saved;
 
   // One statement, identical keys on every row (missing keys would become NULL)
   const { error: captionsError } = await supabase.from("captions").insert(
     result.captions.map((c) => ({
-      image_id: image.id,
+      image_id: saved.id,
       humor_flavor_id: c.flavorId,
       content: c.content,
       prompt: result.prompt,
@@ -130,16 +128,78 @@ async function captionUpload(
     return { ok: false, error: "Couldn't save your captions. Please try again." };
   }
 
+  return { ok: true, id: saved.id };
+}
+
+// Column grants only allow image_path, context and topic; id and user_id come from defaults
+async function saveImage(
+  supabase: Supabase,
+  path: string,
+  context: string,
+  topic: Topic | null,
+  created: { imageId: string | null },
+): Promise<StepResult> {
+  const { data: image, error: imageError } = await supabase
+    .from("images")
+    .insert(topic ? { image_path: path, context: context || null, topic } : { image_path: path, context: context || null })
+    .select("id")
+    .single<{ id: string }>();
+  if (imageError?.code === "23505") {
+    return { ok: false, error: "That photo is already posted.", keepUpload: true };
+  }
+  if (imageError || !image) {
+    console.error("Image save failed:", imageError?.message ?? "no row");
+    return { ok: false, error: "Couldn't save your post. Please try again." };
+  }
+  created.imageId = image.id;
   return { ok: true, id: image.id };
+}
+
+async function roastUpload(
+  supabase: Supabase,
+  path: string,
+  context: string,
+  topic: Topic,
+  image: { data: string; mimeType: "image/jpeg" },
+  created: { imageId: string | null },
+): Promise<StepResult> {
+  const critics = await getCritics(topic);
+  if (critics.length === 0) return { ok: false, error: ROAST_ERROR };
+
+  const result = await generateRoasts({ image, context, topic, critics });
+  if (!result.ok) return { ok: false, error: ROAST_REASON_COPY[result.reason] };
+
+  const saved = await saveImage(supabase, path, context, topic, created);
+  if (!saved.ok) return saved;
+
+  const { error } = await supabase.from("captions").insert(
+    result.roasts.map((r) => ({
+      image_id: saved.id,
+      critic_id: r.criticId,
+      content: r.content,
+      tip: r.tip,
+      rating: r.rating,
+      prompt: result.prompt,
+      model: result.model,
+    })),
+  );
+  if (error) {
+    console.error("Roast save failed:", error.message);
+    return { ok: false, error: "Couldn't save your roasts. Please try again." };
+  }
+  return { ok: true, id: saved.id };
 }
 
 // The browser uploads straight to Storage; only the object path comes through here.
 // On success this redirects to the new photo's page and never returns.
-export async function createImage(path: string, context: string): Promise<Failure> {
+// With a topic, critics roast the photo instead of writing captions.
+export async function createImage(path: string, context: string, topicSlug?: string): Promise<Failure> {
   // Same gate as the /new page, so a direct POST can't skip onboarding
   const { user } = await requireCompleteProfile();
   if (!isOwnImagePath(user.id, path)) return { ok: false, error: "Invalid upload." };
   const note = readContext(context);
+  const topic = topicSlug === undefined ? null : parseTopic(topicSlug);
+  if (topicSlug !== undefined && !topic) return { ok: false, error: "Pick a topic." };
 
   const supabase = await createClient();
 
@@ -164,7 +224,7 @@ export async function createImage(path: string, context: string): Promise<Failur
   const created: { imageId: string | null } = { imageId: null };
   let outcome: StepResult;
   try {
-    outcome = await captionUpload(supabase, user.id, path, note, created);
+    outcome = await captionUpload(supabase, user.id, path, note, topic, created);
   } catch (err) {
     console.error("Creating post failed:", err instanceof Error ? err.message : err);
     outcome = { ok: false, error: GENERIC_ERROR };

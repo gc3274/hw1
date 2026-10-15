@@ -5,11 +5,13 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import PageTransition from "@/components/PageTransition";
 import PhotoMorph from "@/components/PhotoMorph";
+import { RatingBadge, RoastTip } from "@/components/RoastBits";
 import VoteButtons from "@/components/VoteButtons";
 import { card, focusRing } from "@/components/ui";
 import type { VoteValue } from "@/lib/captions";
 import { getUser } from "@/lib/dal";
 import { getImage, getMyVotes, type ImageCaption } from "@/lib/images";
+import { panelScore, RATING_MAX } from "@/lib/roasts";
 import CaptionReview from "./CaptionReview";
 
 const TITLE_MAX = 60;
@@ -36,7 +38,12 @@ function groupByFlavor(captions: ImageCaption[]) {
   for (const caption of captions) {
     const last = groups[groups.length - 1];
     if (last && last.id === caption.flavorId) last.captions.push(caption);
-    else groups.push({ id: caption.flavorId, name: caption.flavorName, captions: [caption] });
+    else
+      groups.push({
+        id: caption.flavorId,
+        name: caption.critic ? `${caption.critic.emoji} ${caption.critic.name}` : caption.flavorName,
+        captions: [caption],
+      });
   }
   return groups;
 }
@@ -66,6 +73,20 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
   const [user, votes] = await Promise.all([getUser(), getMyVotes(publicIds)]);
   const signedIn = Boolean(user);
   const groups = groupByFlavor(image.captions);
+  const roast = image.topic !== null;
+  // Owners see the whole panel's score; everyone else only what was posted
+  const panel = roast
+    ? panelScore((image.isOwner ? image.captions : image.captions.filter((c) => c.isPublic)).map((c) => c.rating))
+    : null;
+  const panelLine =
+    panel === null ? null : (
+      <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-rose/40 bg-rose/10 px-3 py-1 text-sm">
+        The panel gave it{" "}
+        <span className="font-mono font-bold text-rose tabular-nums">
+          {panel}/{RATING_MAX}
+        </span>
+      </p>
+    );
 
   const photo = (
     <PhotoMorph imageId={image.id}>
@@ -87,9 +108,9 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
     <PageTransition>
       <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:p-8">
         {image.isOwner ? (
-          <CaptionReview imageId={image.id} photo={photo} groups={groups} votes={votes} signedIn={signedIn} />
+          <CaptionReview imageId={image.id} photo={photo} groups={groups} votes={votes} signedIn={signedIn} roast={roast} panel={panelLine} />
         ) : (
-          <PublicCaptions photo={photo} groups={groups} votes={votes} signedIn={signedIn} />
+          <PublicCaptions photo={photo} groups={groups} votes={votes} signedIn={signedIn} roast={roast} panel={panelLine} />
         )}
       </main>
     </PageTransition>
@@ -103,16 +124,20 @@ function PublicCaptions({
   groups,
   votes,
   signedIn,
+  roast,
+  panel,
 }: {
   photo: ReactNode;
   groups: ReturnType<typeof groupByFlavor>;
   votes: Record<string, VoteValue>;
   signedIn: boolean;
+  roast: boolean;
+  panel: ReactNode;
 }) {
   return (
     <>
       <Link
-        href="/"
+        href={roast ? "/roast" : "/"}
         className={`mb-6 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:text-fg hover:underline ${focusRing}`}
       >
         <span aria-hidden="true">←</span> Back to the feed
@@ -120,7 +145,8 @@ function PublicCaptions({
       <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start">
         <div className="md:sticky md:top-24">{photo}</div>
         <div className="min-w-0">
-          <h1 className="font-display text-3xl font-bold tracking-tight">Captions</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">{roast ? "Roasts" : "Captions"}</h1>
+          {panel}
           <div className="mt-8 space-y-8">
             {groups.map((group) => (
               <section key={group.id} aria-labelledby={`flavor-${group.id}`}>
@@ -130,9 +156,13 @@ function PublicCaptions({
                 <ul className="mt-3 space-y-3">
                   {group.captions.map((caption) => (
                     <li key={caption.id} className={`${card} p-4 sm:p-5`}>
-                      <p className="font-display text-lg leading-snug font-bold text-pretty break-words">
-                        {caption.content}
-                      </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-display text-lg leading-snug font-bold text-pretty break-words">
+                          {caption.content}
+                        </p>
+                        <RatingBadge rating={caption.rating} />
+                      </div>
+                      <RoastTip tip={caption.tip} className="mt-3" />
                       <div className="mt-3 flex justify-end">
                         <VoteButtons
                           captionId={caption.id}

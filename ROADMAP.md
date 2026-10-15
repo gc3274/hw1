@@ -30,6 +30,23 @@ Current humor styles: **Midwest transplant**, **Jaded New Yorker**, **Chronicall
 
 ## 📝 Next
 
+### Roast mode: AI critics flame what you made (possible new direction)
+
+A posting game. You post something you made, like a meal you cooked, a drawing, your dorm room or today's outfit, and an AI critic for that topic roasts it in character. Then everyone votes on the roasts. The humor stays, but the joke is now about your own work instead of a random photo.
+
+- **A critic for each topic:** cooking gets a hot-tempered TV chef, drawings get a snobby gallery curator, dorm rooms get an over-the-top home makeover host, and outfits get a ruthless fashion editor. "Topic of the week" could decide which critic is on duty.
+- **Heat level:** you pick how hard you get flamed: Gentle, Medium or Extra crispy.
+- **A roast plus one real tip:** every roast ends with one honest suggestion, so your cooking or drawing actually gets better. That gives people a reason to keep posting.
+- **Voting:** people vote on whether the roast landed, and maybe on whether the critic was fair. A dish the critic hated but the crowd loved could be the weekly highlight.
+- **Builds on what exists:** humor styles become critics, and photo upload, posting and voting stay as they are.
+
+Open questions:
+- Is this the new direction for the whole app, or one mode next to photo captions?
+- One roast per post, or several critics or heat levels to choose from like today's captions?
+- Roast the thing, never the person. What happens with photos that show people? No jokes about bodies or identity.
+- Critics are original characters inspired by a type (the fiery TV chef), not real celebrities by name.
+- Does the critic also give a score out of 10? That could feed streaks and a "Survived the chef" leaderboard.
+
 ### Beyond humor (for discussion with the PM and feedback group)
 
 The app doesn't have to be about humor. It only needs AI-made media that people rate or vote on. Before adding more humor features, decide whether to widen what the captions are for, so people have a reason to come back more than once.

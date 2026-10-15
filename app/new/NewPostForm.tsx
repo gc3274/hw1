@@ -19,6 +19,7 @@ import { useCursorEffects } from "@/components/fx/hooks";
 import Spinner from "@/components/Spinner";
 import { button, card } from "@/components/ui";
 import { CONTEXT_MAX, IMAGE_BUCKET } from "@/lib/captions";
+import { TOPICS, type Topic } from "@/lib/roasts";
 import { PhotoError, resizeToJpeg } from "@/lib/resize-image";
 import { createClient } from "@/lib/supabase/client";
 import WritingOverlay from "./WritingOverlay";
@@ -31,11 +32,18 @@ const STAGE_COPY: Record<Stage, string> = {
   writing: "Writing captions… (about 10 seconds)",
 };
 
+const ROAST_STAGE_COPY: Record<Stage, string> = {
+  ...STAGE_COPY,
+  writing: "The critics are judging… (about 10 seconds)",
+};
+
 const UNREADABLE = "Couldn’t read that photo. Try a JPG or PNG.";
 const UPLOAD_FAILED = "Upload failed. Check your connection and try again.";
 const CAPTIONS_FAILED = "Something went wrong while writing captions. Please try again.";
 
-export default function NewPostForm({ userId }: { userId: string }) {
+// roast: pick a topic and get roasted by critics instead of captioned
+export default function NewPostForm({ userId, roast = false }: { userId: string; roast?: boolean }) {
+  const [topic, setTopic] = useState<Topic | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -96,6 +104,10 @@ export default function NewPostForm({ userId }: { userId: string }) {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file || pending) return;
+    if (roast && !topic) {
+      setError("Pick a topic first.");
+      return;
+    }
     const picked = file;
     const context = note;
 
@@ -136,7 +148,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
       // deletes the upload itself, so there's nothing to clean up here.
       startTransition(() => setStage("writing"));
       try {
-        const result = await createImage(path, context);
+        const result = roast && topic ? await createImage(path, context, topic) : await createImage(path, context);
         fail(result?.error ?? CAPTIONS_FAILED);
       } catch (err) {
         // The success redirect arrives as a thrown navigation; let Next handle it
@@ -147,7 +159,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
   }
 
   const remaining = CONTEXT_MAX - note.length;
-  const status = error ?? (stage ? STAGE_COPY[stage] : null);
+  const status = error ?? (stage ? (roast ? ROAST_STAGE_COPY : STAGE_COPY)[stage] : null);
 
   const dropzone = (
     <label
@@ -192,6 +204,36 @@ export default function NewPostForm({ userId }: { userId: string }) {
 
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-6">
+      {roast && (
+        <fieldset disabled={pending}>
+          <legend className="text-sm font-medium">What are we judging?</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {TOPICS.map((t) => (
+              <label key={t.slug} className="relative">
+                <input
+                  type="radio"
+                  name="topic"
+                  value={t.slug}
+                  checked={topic === t.slug}
+                  onChange={() => {
+                    setError(null);
+                    setTopic(t.slug);
+                  }}
+                  className="peer sr-only"
+                />
+                <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-white/5 px-3 py-1.5 text-sm font-medium text-fg/80 transition-colors peer-checked:border-lime peer-checked:bg-lime peer-checked:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lime motion-reduce:transition-none">
+                  <span aria-hidden="true">{t.emoji}</span>
+                  {t.label}
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-sm text-muted">
+            {topic ? `Post ${TOPICS.find((t) => t.slug === topic)?.hint}.` : "Food, art, your room or your fit."}{" "}
+            Critics roast the thing, never the person.
+          </p>
+        </fieldset>
+      )}
       <div>
         <p className="block text-sm font-medium" id="photo-label">
           Photo
@@ -211,7 +253,9 @@ export default function NewPostForm({ userId }: { userId: string }) {
           <div className="mt-2 rounded-[20px] border border-white/15 bg-[#0d0d13]">{dropzone}</div>
         )}
         <p id="photo-hint" className="mt-2 text-sm text-muted">
-          Campus, the subway, your dorm, a bodega cat. Skip photos of people who didn’t say yes.
+          {roast
+            ? "Show the thing itself. Photos that are mainly of a person get turned away."
+            : "Campus, the subway, your dorm, a bodega cat. Skip photos of people who didn’t say yes."}
         </p>
 
         {preview && (
@@ -225,7 +269,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
               onError={() => setError(UNREADABLE)}
               className="object-contain"
             />
-            {stage === "writing" && <WritingOverlay />}
+            {stage === "writing" && <WritingOverlay roast={roast} />}
           </div>
         )}
       </div>
@@ -237,13 +281,13 @@ export default function NewPostForm({ userId }: { userId: string }) {
         optional
         rows={2}
         maxLength={CONTEXT_MAX}
-        placeholder="Ex: First week, already lost in Butler"
+        placeholder={roast ? "Ex: My first carbonara, be gentle" : "Ex: First week, already lost in Butler"}
         value={note}
         onChange={(event) => setNote(event.target.value)}
         disabled={pending}
         hint={
           <span className="flex items-baseline justify-between gap-4">
-            <span>Helps the captions land. It’s never shown publicly.</span>
+            <span>{roast ? "Gives the critics context." : "Helps the captions land."} It’s never shown publicly.</span>
             <span
               className={`shrink-0 tabular-nums ${
                 remaining <= 20 ? "text-amber-300" : ""
@@ -259,7 +303,7 @@ export default function NewPostForm({ userId }: { userId: string }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button type="submit" disabled={pending} className={button("primary")}>
           {pending && <Spinner />}
-          {pending ? "Working…" : "Write captions"}
+          {pending ? "Working…" : roast ? "Roast me" : "Write captions"}
         </button>
         <p
           role="status"

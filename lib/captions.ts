@@ -83,7 +83,7 @@ function stripHashtags(s: string) {
   return out;
 }
 
-function cleanCaption(text: string) {
+export function cleanCaption(text: string) {
   return stripHashtags(stripQuotes(stripHashtags(collapse(text))));
 }
 
@@ -176,8 +176,9 @@ export function doneButtonLabel({ toPost, toHide }: CaptionChoiceDiff): string {
 }
 
 // Posted captions show up under New; with nothing posted, the photo lives on the dashboard
-export function doneHref(anyPublic: boolean) {
-  return anyPublic ? "/?sort=new" : "/dashboard";
+export function doneHref(anyPublic: boolean, roast = false) {
+  if (!anyPublic) return "/dashboard";
+  return roast ? "/roast?sort=new" : "/?sort=new";
 }
 
 export function validateCaptionChoices(

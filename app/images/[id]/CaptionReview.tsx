@@ -4,6 +4,7 @@ import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition, type MouseEvent, type ReactNode } from "react";
 import { saveCaptionChoices } from "@/app/captions/actions";
+import { RatingBadge, RoastTip } from "@/components/RoastBits";
 import Spinner from "@/components/Spinner";
 import VoteButtons from "@/components/VoteButtons";
 import { button, card, focusRing } from "@/components/ui";
@@ -22,12 +23,16 @@ export default function CaptionReview({
   groups,
   votes,
   signedIn,
+  roast = false,
+  panel = null,
 }: {
   imageId: string;
   photo: ReactNode;
   groups: CaptionGroup[];
   votes: Record<string, VoteValue>;
   signedIn: boolean;
+  roast?: boolean;
+  panel?: ReactNode;
 }) {
   const captions = groups.flatMap((g) => g.captions);
   const saved = Object.fromEntries(captions.map((c) => [c.id, c.isPublic]));
@@ -88,21 +93,22 @@ export default function CaptionReview({
   return (
     <>
       <Link
-        href="/"
+        href={roast ? "/roast" : "/"}
         onClick={onBack}
         className={`mb-6 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:text-fg hover:underline ${focusRing}`}
       >
-        <span aria-hidden="true">←</span> Back to the feed
+        <span aria-hidden="true">←</span> {roast ? "Back to roasts" : "Back to the feed"}
       </Link>
 
       <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start">
         <div className="md:sticky md:top-24">{photo}</div>
 
         <div className="min-w-0">
-          <h1 className="font-display text-3xl font-bold tracking-tight">Your captions</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">{roast ? "Your roasts" : "Your captions"}</h1>
+          {panel}
           <p className="mt-2 text-sm text-muted">
-            Everything starts private. Switch the ones you like to Post, then save with the button at
-            the bottom.
+            Everything starts private. Switch the ones you {roast ? "can handle" : "like"} to Post, then
+            save with the button at the bottom.
           </p>
 
           {groups.length === 0 ? (
@@ -155,7 +161,7 @@ export default function CaptionReview({
                     {pending ? "Saving…" : doneButtonLabel(diff)}
                   </button>
                 ) : (
-                  <Link href={doneHref(postedCount > 0)} className={button("primary", "sm")}>
+                  <Link href={doneHref(postedCount > 0, roast)} className={button("primary", "sm")}>
                     Done
                   </Link>
                 )}
@@ -224,9 +230,13 @@ function CaptionRow({
       data-posting={isPublic}
       className={`${card} p-4 transition-[border-color,box-shadow] duration-300 motion-reduce:transition-none sm:p-5 data-[posting=true]:border-lime/60 data-[posting=true]:shadow-[0_0_0_1px_rgb(196_255_61/0.3),0_0_28px_-6px_rgb(196_255_61/0.45)]`}
     >
-      <p id={textId} className="font-display text-lg leading-snug font-bold text-pretty break-words">
-        {caption.content}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p id={textId} className="font-display text-lg leading-snug font-bold text-pretty break-words">
+          {caption.content}
+        </p>
+        <RatingBadge rating={caption.rating} />
+      </div>
+      <RoastTip tip={caption.tip} className="mt-3" />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <VisibilitySwitch isPublic={isPublic} disabled={disabled} captionId={textId} onChange={onChange} />

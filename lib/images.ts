@@ -9,6 +9,7 @@ import {
   type Flavor,
   type VoteValue,
 } from "@/lib/captions";
+import type { Critic, Topic } from "@/lib/roasts";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -26,9 +27,21 @@ export type FeedCaption = {
   image: { id: string; url: string };
 };
 
+export type CriticTag = { slug: string; name: string; emoji: string };
+
+export type FeedRoast = FeedCaption & {
+  critic: CriticTag;
+  rating: number | null;
+  tip: string | null;
+  topic: string;
+};
+
 export type ImageCaption = {
   id: string;
   content: string;
+  critic: CriticTag | null;
+  rating: number | null;
+  tip: string | null;
   upvotes: number;
   downvotes: number;
   score: number;
@@ -42,6 +55,7 @@ export type ImageCaption = {
 export type ImageDetail = {
   id: string;
   url: string;
+  topic: string | null;
   createdAt: string;
   isOwner: boolean;
   captions: ImageCaption[];
@@ -80,12 +94,17 @@ type ImageCaptionRow = {
   posted_at: string | null;
   created_at: string;
   humor_flavors: { slug: string; name: string; sort_order: number } | null;
+  critic_id: number | null;
+  rating: number | null;
+  tip: string | null;
+  critics: { slug: string; name: string; emoji: string; sort_order: number } | null;
 };
 
 type ImageRow = {
   id: string;
   user_id: string;
   image_path: string;
+  topic: string | null;
   created_at: string;
   captions: ImageCaptionRow[] | null;
 };
@@ -125,7 +144,9 @@ export async function getFeed(
     .select(
       "id, content, upvotes, downvotes, score, posted_at, humor_flavors(slug, name), images(id, image_path)",
     )
-    .eq("is_public", true);
+    .eq("is_public", true)
+    // Roasts have their own tab
+    .not("humor_flavor_id", "is", null);
 
   if (sort === "top") {
     const since = new Date(Date.now() - TOP_WINDOW_MS).toISOString();
@@ -163,6 +184,83 @@ export async function getFeed(
   return { captions, hasMore: rows.length > limit, error: null };
 }
 
+// The panel for a topic: its expert (if it has one) plus the general critics
+export async function getCritics(topic: Topic): Promise<Critic[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("critics")
+    .select("id, slug, name, emoji, description")
+    .or(`topic.is.null,topic.eq.${topic}`)
+    .order("sort_order");
+
+  if (error) {
+    console.error("Loading critics failed:", error.message);
+    return [];
+  }
+  return (data ?? []) as Critic[];
+}
+
+type RoastRow = Omit<FeedRow, "humor_flavors" | "images"> & {
+  rating: number | null;
+  tip: string | null;
+  critics: CriticTag | null;
+  images: { id: string; image_path: string; topic: string | null } | null;
+};
+
+export async function getRoastFeed(
+  sort: FeedSort,
+  limit: number,
+  topic: Topic | null,
+): Promise<{ roasts: FeedRoast[]; hasMore: boolean; error: string | null }> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("captions")
+    .select(
+      "id, content, upvotes, downvotes, score, posted_at, rating, tip, critics(slug, name, emoji), images!inner(id, image_path, topic)",
+    )
+    .eq("is_public", true)
+    .not("critic_id", "is", null);
+  if (topic) query = query.eq("images.topic", topic);
+
+  if (sort === "top") {
+    const since = new Date(Date.now() - TOP_WINDOW_MS).toISOString();
+    query = query
+      .gte("posted_at", since)
+      .order("score", { ascending: false })
+      .order("posted_at", { ascending: false });
+  } else {
+    query = query.order("posted_at", { ascending: false });
+  }
+
+  const { data, error } = await query.order("id").limit(limit + 1);
+  if (error) {
+    console.error("Loading the roast feed failed:", error.message);
+    return { roasts: [], hasMore: false, error: error.message };
+  }
+
+  const rows = (data ?? []) as unknown as RoastRow[];
+  const roasts = rows.slice(0, limit).flatMap((row): FeedRoast[] => {
+    if (!row.images || !row.critics) return [];
+    return [
+      {
+        id: row.id,
+        content: row.content,
+        upvotes: row.upvotes,
+        downvotes: row.downvotes,
+        score: row.score,
+        postedAt: row.posted_at,
+        flavor: { slug: row.critics.slug, name: row.critics.name },
+        critic: row.critics,
+        rating: row.rating,
+        tip: row.tip,
+        topic: row.images.topic ?? "anything",
+        image: { id: row.images.id, url: publicImageUrl(supabase, row.images.image_path) },
+      },
+    ];
+  });
+  return { roasts, hasMore: rows.length > limit, error: null };
+}
+
 // RLS decides what comes back: owners get every caption, everyone else only
 // posted ones, and a photo with nothing posted is hidden from non-owners.
 export const getImage = cache(async (id: string): Promise<ImageDetail | null> => {
@@ -174,7 +272,7 @@ export const getImage = cache(async (id: string): Promise<ImageDetail | null> =>
     supabase
       .from("images")
       .select(
-        "id, user_id, image_path, created_at, captions(id, humor_flavor_id, content, is_public, upvotes, downvotes, score, posted_at, created_at, humor_flavors(slug, name, sort_order))",
+        "id, user_id, image_path, topic, created_at, captions(id, humor_flavor_id, content, is_public, upvotes, downvotes, score, posted_at, created_at, humor_flavors(slug, name, sort_order), critic_id, rating, tip, critics(slug, name, emoji, sort_order))",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -189,7 +287,8 @@ export const getImage = cache(async (id: string): Promise<ImageDetail | null> =>
     .slice()
     .sort(
       (a, b) =>
-        (a.humor_flavors?.sort_order ?? 0) - (b.humor_flavors?.sort_order ?? 0) ||
+        (a.humor_flavors?.sort_order ?? a.critics?.sort_order ?? 0) -
+          (b.humor_flavors?.sort_order ?? b.critics?.sort_order ?? 0) ||
         b.score - a.score ||
         a.created_at.localeCompare(b.created_at),
     )
@@ -202,15 +301,20 @@ export const getImage = cache(async (id: string): Promise<ImageDetail | null> =>
         score: c.score,
         postedAt: c.posted_at,
         isPublic: c.is_public,
-        flavorId: c.humor_flavor_id,
-        flavorSlug: c.humor_flavors?.slug ?? "",
-        flavorName: c.humor_flavors?.name ?? "",
+        // Roasts group by critic; ids can't collide with flavor groups on one photo
+        flavorId: c.humor_flavor_id ?? c.critic_id ?? 0,
+        flavorSlug: c.humor_flavors?.slug ?? c.critics?.slug ?? "",
+        flavorName: c.humor_flavors?.name ?? c.critics?.name ?? "",
+        critic: c.critics ? { slug: c.critics.slug, name: c.critics.name, emoji: c.critics.emoji } : null,
+        rating: c.rating,
+        tip: c.tip,
       }),
     );
 
   return {
     id: row.id,
     url: publicImageUrl(supabase, row.image_path),
+    topic: row.topic,
     createdAt: row.created_at,
     isOwner: user?.id === row.user_id,
     captions,

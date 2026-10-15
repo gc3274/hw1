@@ -14,6 +14,7 @@ import SubmitButton from "./SubmitButton";
 import { button, focusRing } from "./ui";
 
 const FEED: NavItem = { href: "/", label: "Feed", exact: true };
+const ROAST: NavItem = { href: "/roast", label: "Roast" };
 
 export default function Header() {
   return (
@@ -60,7 +61,7 @@ async function AccountNav() {
     const isGuest = (await cookies()).has(GUEST_COOKIE);
     return (
       <>
-        {isGuest && <MainNav items={[FEED]} />}
+        {isGuest && <MainNav items={[FEED, ROAST]} />}
         <Link href="/login" className={button("primary", "sm")}>
           Sign in
         </Link>
@@ -79,6 +80,7 @@ async function AccountNav() {
           className="order-last w-full sm:order-none sm:w-auto"
           items={[
             FEED,
+            ROAST,
             { href: "/new", label: "New post" },
             { href: "/dashboard", label: "Dashboard" },
             { href: "/profile", label: "Profile" },
@@ -88,7 +90,7 @@ async function AccountNav() {
         // /profile sends incomplete accounts to onboarding anyway
         <MainNav
           className="order-last w-full sm:order-none sm:w-auto"
-          items={[FEED, { href: "/onboarding", label: "Finish setup" }]}
+          items={[FEED, ROAST, { href: "/onboarding", label: "Finish setup" }]}
         />
       )}
       <div className="flex min-w-0 items-center gap-3">
