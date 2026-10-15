@@ -20,30 +20,28 @@ Each feature goes through a short design pass before it's built: what it does, o
 | Google sign-in, profiles, onboarding, dashboard | Protected routes, avatar upload, bio |
 | AI captions in four humor styles | Gemini writes 2 captions per style per photo |
 | Private-until-posted captions, up/down votes | Feed with Top this week / New; row-level security on every table |
+| Night-city redesign | Dark theme and motion built on React Bits, animated title screen, feed cards with spotlight and rolling vote scores |
+| Welcome screen and guest mode | First-time visitors can look around as a guest; a sign-in bar on the feed invites them to join |
+| Easier uploads and caption review | Drag-and-drop photo picker, a "writing captions" screen, and Private/Post switches saved all at once with Done |
 
 Current humor styles: **Midwest transplant**, **Jaded New Yorker**, **Chronically online**, **Overheard in Butler**.
 
 ---
 
-## 🚧 In progress: Redesign (branch `redesign`)
-
-A dark "night city" look with motion throughout, built on React Bits components. Nothing gets merged until it has been tested locally.
-
-- [x] Animation libraries and motion-preference helpers (reduced motion and touch screens get no effects)
-- [x] Dark theme, fonts (Bricolage Grotesque, Geist, Geist Mono), shared button and card styles
-- [x] Glass header with gooey nav, click sparks, smooth page transitions
-- [x] Animated title screen and signed-in welcome band
-- [x] Feed cards with spotlight hover, scroll reveals, rolling vote scores
-- [x] Caption review: Private/Post switch per caption, saved all at once with Done; fix cut-off boxes
-- [x] Drag-and-drop photo picker and a fun "writing captions" screen
-- [x] Login, dashboard counters, 404 and error pages, restyle of the remaining pages
-- [x] Welcome screen for first-time visitors with "Look around as a guest", a guest banner, and a sign-in bar on the feed
-- [x] Full check on phone and desktop, with and without reduced motion
-- [ ] Local test by the product owner, then merge to `main`
-
----
-
 ## 📝 Next
+
+### Beyond humor (for discussion with the PM and feedback group)
+
+The app doesn't have to be about humor. It only needs AI-made media that people rate or vote on. Before adding more humor features, decide whether to widen what the captions are for, so people have a reason to come back more than once.
+
+- **Caption helper for your own posts:** the same flow (photo → AI captions → votes), but the styles become tones: funny, aesthetic, wholesome, minimal, witty. Friends vote on which caption you should actually post. People would come back every time they post something.
+- **Campus and NYC spot guide:** a photo of a place gets an AI-written tip or mini review, and the community rates how useful or accurate it is.
+- **Keep humor as one mode** next to the new direction instead of replacing it.
+
+Open questions:
+- What does a vote mean: funnier, more useful, or "I'd post this"?
+- Do we keep the name Caption City?
+- What would make someone use it more than once a week?
 
 ### Topic of the week and browsing by subject
 
