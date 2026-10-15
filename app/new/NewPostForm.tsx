@@ -20,7 +20,7 @@ import Spinner from "@/components/Spinner";
 import { button, card } from "@/components/ui";
 import { CONTEXT_MAX, IMAGE_BUCKET } from "@/lib/captions";
 import { TOPICS, type Topic } from "@/lib/roasts";
-import { PhotoError, resizeToJpeg } from "@/lib/resize-image";
+import { isImageFile, looksLikeHeic, PhotoError, resizeToJpeg } from "@/lib/resize-image";
 import { createClient } from "@/lib/supabase/client";
 import WritingOverlay from "./WritingOverlay";
 
@@ -37,7 +37,7 @@ const ROAST_STAGE_COPY: Record<Stage, string> = {
   writing: "The critics are judging… (about 10 seconds)",
 };
 
-const UNREADABLE = "Couldn’t read that photo. Try a JPG or PNG.";
+const UNREADABLE = "Couldn’t read that photo. Try a JPG, PNG or HEIC.";
 const UPLOAD_FAILED = "Upload failed. Check your connection and try again.";
 const CAPTIONS_FAILED = "Something went wrong while writing captions. Please try again.";
 
@@ -74,10 +74,31 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
     };
   }, []);
 
+  const currentFile = useRef<File | null>(null);
   function pick(picked: File | null) {
+    currentFile.current = picked;
     setError(null);
     setFile(picked);
     setPreview(picked ? URL.createObjectURL(picked) : null);
+  }
+
+  // Browsers without HEIC support can't show the original, so preview a JPEG copy.
+  // Only once per file, and dropped if another photo was picked meanwhile.
+  const convertedFor = useRef<File | null>(null);
+  async function onPreviewError() {
+    const picked = file;
+    if (!picked || !looksLikeHeic(picked) || convertedFor.current === picked) {
+      setError(UNREADABLE);
+      return;
+    }
+    convertedFor.current = picked;
+    try {
+      const { heicTo } = await import("heic-to/next");
+      const jpeg = await heicTo({ blob: picked, type: "image/jpeg", quality: 0.8 });
+      if (currentFile.current === picked) setPreview(URL.createObjectURL(jpeg));
+    } catch {
+      setError(UNREADABLE);
+    }
   }
 
   function onPick(event: ChangeEvent<HTMLInputElement>) {
@@ -90,7 +111,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
     if (pending) return;
     const dropped = event.dataTransfer.files?.[0];
     if (!dropped) return;
-    if (!dropped.type.startsWith("image/")) {
+    if (!isImageFile(dropped)) {
       setError(UNREADABLE);
       return;
     }
@@ -178,7 +199,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
         id="photo"
         name="photo"
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         required
         onChange={onPick}
         disabled={pending}
@@ -197,7 +218,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
         )}
       </span>
       <span id="photo-format" className="text-sm text-muted">
-        JPG or PNG · big photos are resized for you
+        JPG, PNG or HEIC · big photos are resized for you
       </span>
     </label>
   );
@@ -266,7 +287,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
               fill
               unoptimized
               sizes="384px"
-              onError={() => setError(UNREADABLE)}
+              onError={onPreviewError}
               className="object-contain"
             />
             {stage === "writing" && <WritingOverlay roast={roast} />}

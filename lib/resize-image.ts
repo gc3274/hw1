@@ -3,7 +3,28 @@ import { IMAGE_MAX_BYTES } from "@/lib/captions";
 // Browser only. Every error resizeToJpeg throws has a message that's safe to show.
 export class PhotoError extends Error {}
 
-const UNREADABLE = "Couldn’t read that photo. Try a JPG or PNG.";
+const UNREADABLE = "Couldn’t read that photo. Try a JPG, PNG or HEIC.";
+
+// Chrome often reports HEIC files with an empty type, so the extension counts too
+export function looksLikeHeic(file: File) {
+  return /^image\/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+}
+
+export function isImageFile(file: File) {
+  return file.type.startsWith("image/") || looksLikeHeic(file);
+}
+
+// Desktop Chrome and Firefox can't decode HEIC (iPhone photos), so those go
+// through a WebAssembly decoder that only loads when one is picked
+async function decode(file: File): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch (err) {
+    if (!looksLikeHeic(file)) throw err;
+    const { heicTo } = await import("heic-to/next");
+    return heicTo({ blob: file, type: "bitmap", options: { imageOrientation: "from-image" } });
+  }
+}
 const PREPARE_FAILED = "Couldn’t prepare that photo. Please try another one.";
 
 function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
@@ -22,8 +43,7 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 export async function resizeToJpeg(file: File, maxSide = 1600): Promise<Blob> {
   let bitmap: ImageBitmap;
   try {
-    // Desktop Chrome and Firefox can't decode HEIC, so iPhone originals can land here
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    bitmap = await decode(file);
   } catch {
     throw new PhotoError(UNREADABLE);
   }
