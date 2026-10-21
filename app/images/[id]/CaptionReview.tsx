@@ -10,10 +10,12 @@ import VoteButtons from "@/components/VoteButtons";
 import { button, card, focusRing } from "@/components/ui";
 import { diffCaptionChoices, doneButtonLabel, doneHref, type VoteValue } from "@/lib/captions";
 import type { ImageCaption } from "@/lib/images";
-
-export type CaptionGroup = { id: number; name: string; captions: ImageCaption[] };
+import type { CriticGroup } from "@/lib/roasts";
 
 const SAVE_FAILED = "Couldn’t save your choices. Please try again.";
+
+// The back link and Discard both leave for the same place
+const BACK_HREF = "/roast";
 
 // The owner's view of a photo: every caption starts private, switches are
 // local until Done saves them all at once.
@@ -23,18 +25,16 @@ export default function CaptionReview({
   groups,
   votes,
   signedIn,
-  roast = false,
   panel = null,
 }: {
   imageId: string;
   photo: ReactNode;
-  groups: CaptionGroup[];
+  groups: CriticGroup<ImageCaption>[];
   votes: Record<string, VoteValue>;
   signedIn: boolean;
-  roast?: boolean;
   panel?: ReactNode;
 }) {
-  const captions = groups.flatMap((g) => g.captions);
+  const captions = groups.flatMap((g) => g.roasts);
   const saved = Object.fromEntries(captions.map((c) => [c.id, c.isPublic]));
   const [staged, setStaged] = useState<Record<string, boolean>>(saved);
   const [error, setError] = useState<string | null>(null);
@@ -93,21 +93,21 @@ export default function CaptionReview({
   return (
     <>
       <Link
-        href={roast ? "/roast" : "/"}
+        href={BACK_HREF}
         onClick={onBack}
         className={`mb-6 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:text-fg hover:underline ${focusRing}`}
       >
-        <span aria-hidden="true">←</span> {roast ? "Back to roasts" : "Back to the feed"}
+        <span aria-hidden="true">←</span> Back to roasts
       </Link>
 
       <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start">
         <div className="md:sticky md:top-24">{photo}</div>
 
         <div className="min-w-0">
-          <h1 className="font-display text-3xl font-bold tracking-tight">{roast ? "Your roasts" : "Your captions"}</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Your roasts</h1>
           {panel}
           <p className="mt-2 text-sm text-muted">
-            Everything starts private. Switch the ones you {roast ? "can handle" : "like"} to Post, then
+            Everything starts private. Switch the ones you can handle to Post, then
             save with the button at the bottom.
           </p>
 
@@ -116,15 +116,15 @@ export default function CaptionReview({
           ) : (
             <div className="mt-8 space-y-8">
               {groups.map((group) => (
-                <section key={group.id} aria-labelledby={`flavor-${group.id}`}>
+                <section key={group.id} aria-labelledby={`critic-${group.id}`}>
                   <h2
-                    id={`flavor-${group.id}`}
+                    id={`critic-${group.id}`}
                     className="text-xs font-semibold tracking-[0.18em] text-muted uppercase"
                   >
-                    {group.name || "Captions"}
+                    {group.name || "Critic"}
                   </h2>
                   <ul className="mt-3 space-y-3">
-                    {group.captions.map((caption) => (
+                    {group.roasts.map((caption) => (
                       <CaptionRow
                         key={caption.id}
                         caption={caption}
@@ -161,7 +161,7 @@ export default function CaptionReview({
                     {pending ? "Saving…" : doneButtonLabel(diff)}
                   </button>
                 ) : (
-                  <Link href={doneHref(postedCount > 0, roast)} className={button("primary", "sm")}>
+                  <Link href={doneHref(postedCount > 0, true)} className={button("primary", "sm")}>
                     Done
                   </Link>
                 )}
@@ -197,7 +197,7 @@ export default function CaptionReview({
                 Keep editing
               </button>
             </form>
-            <Link href="/" className={`${button("ghost", "sm")} text-rose hover:text-rose`}>
+            <Link href={BACK_HREF} className={`${button("ghost", "sm")} text-rose hover:text-rose`}>
               Discard
             </Link>
           </div>

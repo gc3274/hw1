@@ -11,7 +11,7 @@ import { card, focusRing } from "@/components/ui";
 import type { VoteValue } from "@/lib/captions";
 import { getUser } from "@/lib/dal";
 import { getImage, getMyVotes, type ImageCaption } from "@/lib/images";
-import { panelScore, RATING_MAX } from "@/lib/roasts";
+import { groupByCritic, panelScore, RATING_MAX, type CriticGroup } from "@/lib/roasts";
 import CaptionReview from "./CaptionReview";
 
 const TITLE_MAX = 60;
@@ -32,28 +32,14 @@ function topPublicCaption(captions: ImageCaption[]) {
     .reduce<ImageCaption | null>((best, c) => (!best || c.score > best.score ? c : best), null);
 }
 
-// Captions arrive sorted by flavor, so consecutive runs make the groups
-function groupByFlavor(captions: ImageCaption[]) {
-  const groups: { id: number; name: string; captions: ImageCaption[] }[] = [];
-  for (const caption of captions) {
-    const last = groups[groups.length - 1];
-    if (last && last.id === caption.flavorId) last.captions.push(caption);
-    else
-      groups.push({
-        id: caption.flavorId,
-        name: caption.critic ? `${caption.critic.emoji} ${caption.critic.name}` : caption.flavorName,
-        captions: [caption],
-      });
-  }
-  return groups;
-}
-
 export async function generateMetadata({ params }: PageProps<"/images/[id]">): Promise<Metadata> {
   const { id } = await params;
   // Cached, so the page below reuses this read
   const image = await getImage(id);
-  const top = image ? topPublicCaption(image.captions) : null;
-  if (!image || !top) return { title: "Photo" };
+  // Missing, hidden or legacy: 404 here too, so nothing leaks into the title
+  if (!image) notFound();
+  const top = topPublicCaption(image.captions);
+  if (!top) return { title: image.isOwner ? "Your roasts" : "Roasts" };
 
   return {
     title: truncate(top.content, TITLE_MAX),
@@ -72,12 +58,11 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
   const publicIds = image.captions.filter((c) => c.isPublic).map((c) => c.id);
   const [user, votes] = await Promise.all([getUser(), getMyVotes(publicIds)]);
   const signedIn = Boolean(user);
-  const groups = groupByFlavor(image.captions);
-  const roast = image.topic !== null;
+  const groups = groupByCritic(image.captions);
   // Owners see the whole panel's score; everyone else only what was posted
-  const panel = roast
-    ? panelScore((image.isOwner ? image.captions : image.captions.filter((c) => c.isPublic)).map((c) => c.rating))
-    : null;
+  const panel = panelScore(
+    (image.isOwner ? image.captions : image.captions.filter((c) => c.isPublic)).map((c) => c.rating),
+  );
   const panelLine =
     panel === null ? null : (
       <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-rose/40 bg-rose/10 px-3 py-1 text-sm">
@@ -108,9 +93,9 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
     <PageTransition>
       <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:p-8">
         {image.isOwner ? (
-          <CaptionReview imageId={image.id} photo={photo} groups={groups} votes={votes} signedIn={signedIn} roast={roast} panel={panelLine} />
+          <CaptionReview imageId={image.id} photo={photo} groups={groups} votes={votes} signedIn={signedIn} panel={panelLine} />
         ) : (
-          <PublicCaptions photo={photo} groups={groups} votes={votes} signedIn={signedIn} roast={roast} panel={panelLine} />
+          <PublicCaptions photo={photo} groups={groups} votes={votes} signedIn={signedIn} panel={panelLine} />
         )}
       </main>
     </PageTransition>
@@ -124,37 +109,35 @@ function PublicCaptions({
   groups,
   votes,
   signedIn,
-  roast,
   panel,
 }: {
   photo: ReactNode;
-  groups: ReturnType<typeof groupByFlavor>;
+  groups: CriticGroup<ImageCaption>[];
   votes: Record<string, VoteValue>;
   signedIn: boolean;
-  roast: boolean;
   panel: ReactNode;
 }) {
   return (
     <>
       <Link
-        href={roast ? "/roast" : "/"}
+        href="/roast"
         className={`mb-6 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:text-fg hover:underline ${focusRing}`}
       >
-        <span aria-hidden="true">←</span> Back to the feed
+        <span aria-hidden="true">←</span> Back to roasts
       </Link>
       <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start">
         <div className="md:sticky md:top-24">{photo}</div>
         <div className="min-w-0">
-          <h1 className="font-display text-3xl font-bold tracking-tight">{roast ? "Roasts" : "Captions"}</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Roasts</h1>
           {panel}
           <div className="mt-8 space-y-8">
             {groups.map((group) => (
-              <section key={group.id} aria-labelledby={`flavor-${group.id}`}>
-                <h2 id={`flavor-${group.id}`} className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                  {group.name || "Captions"}
+              <section key={group.id} aria-labelledby={`critic-${group.id}`}>
+                <h2 id={`critic-${group.id}`} className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
+                  {group.name || "Critic"}
                 </h2>
                 <ul className="mt-3 space-y-3">
-                  {group.captions.map((caption) => (
+                  {group.roasts.map((caption) => (
                     <li key={caption.id} className={`${card} p-4 sm:p-5`}>
                       <div className="flex items-start justify-between gap-3">
                         <p className="font-display text-lg leading-snug font-bold text-pretty break-words">

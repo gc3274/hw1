@@ -36,7 +36,8 @@ export type FeedRoast = FeedCaption & {
 export type ImageCaption = {
   id: string;
   content: string;
-  critic: CriticTag | null;
+  criticId: number;
+  critic: CriticTag;
   rating: number | null;
   tip: string | null;
   upvotes: number;
@@ -44,9 +45,6 @@ export type ImageCaption = {
   score: number;
   postedAt: string | null;
   isPublic: boolean;
-  flavorId: number;
-  flavorSlug: string;
-  flavorName: string;
 };
 
 export type ImageDetail = {
@@ -62,8 +60,8 @@ export type MyImage = {
   id: string;
   url: string;
   createdAt: string;
-  totalCaptions: number;
-  postedCaptions: number;
+  totalRoasts: number;
+  postedRoasts: number;
   totalScore: number;
 };
 
@@ -82,7 +80,6 @@ type FeedRow = {
 
 type ImageCaptionRow = {
   id: string;
-  humor_flavor_id: number;
   content: string;
   is_public: boolean;
   upvotes: number;
@@ -90,12 +87,19 @@ type ImageCaptionRow = {
   score: number;
   posted_at: string | null;
   created_at: string;
-  humor_flavors: { slug: string; name: string; sort_order: number } | null;
   critic_id: number | null;
   rating: number | null;
   tip: string | null;
   critics: { slug: string; name: string; emoji: string; sort_order: number } | null;
 };
+
+type RoastCaptionRow = ImageCaptionRow & {
+  critic_id: number;
+  critics: NonNullable<ImageCaptionRow["critics"]>;
+};
+
+// Only roasts have a critic; anything else is a legacy caption
+const isRoast = (c: ImageCaptionRow): c is RoastCaptionRow => c.critic_id !== null && c.critics !== null;
 
 type ImageRow = {
   id: string;
@@ -202,7 +206,9 @@ export async function getRoastFeed(
       "id, content, upvotes, downvotes, score, posted_at, rating, tip, critics(slug, name, emoji), images!inner(id, image_path, topic)",
     )
     .eq("is_public", true)
-    .not("critic_id", "is", null);
+    .not("critic_id", "is", null)
+    // Legacy caption posts have no topic and are never shown
+    .not("images.topic", "is", null);
   if (topic) query = query.eq("images.topic", topic);
 
   if (sort === "top") {
@@ -244,8 +250,9 @@ export async function getRoastFeed(
   return { roasts, hasMore: rows.length > limit, error: null };
 }
 
-// RLS decides what comes back: owners get every caption, everyone else only
+// RLS decides what comes back: owners get every roast, everyone else only
 // posted ones, and a photo with nothing posted is hidden from non-owners.
+// Legacy caption posts (no topic) come back null, so they 404.
 export const getImage = cache(async (id: string): Promise<ImageDetail | null> => {
   if (!isUuid(id)) return null;
 
@@ -255,9 +262,10 @@ export const getImage = cache(async (id: string): Promise<ImageDetail | null> =>
     supabase
       .from("images")
       .select(
-        "id, user_id, image_path, topic, created_at, captions(id, humor_flavor_id, content, is_public, upvotes, downvotes, score, posted_at, created_at, humor_flavors(slug, name, sort_order), critic_id, rating, tip, critics(slug, name, emoji, sort_order))",
+        "id, user_id, image_path, topic, created_at, captions(id, content, is_public, upvotes, downvotes, score, posted_at, created_at, critic_id, rating, tip, critics(slug, name, emoji, sort_order))",
       )
       .eq("id", id)
+      .not("topic", "is", null)
       .maybeSingle(),
   ]);
 
@@ -267,11 +275,10 @@ export const getImage = cache(async (id: string): Promise<ImageDetail | null> =>
 
   const row = data as unknown as ImageRow;
   const captions = (row.captions ?? [])
-    .slice()
+    .filter(isRoast)
     .sort(
       (a, b) =>
-        (a.humor_flavors?.sort_order ?? a.critics?.sort_order ?? 0) -
-          (b.humor_flavors?.sort_order ?? b.critics?.sort_order ?? 0) ||
+        a.critics.sort_order - b.critics.sort_order ||
         b.score - a.score ||
         a.created_at.localeCompare(b.created_at),
     )
@@ -284,11 +291,8 @@ export const getImage = cache(async (id: string): Promise<ImageDetail | null> =>
         score: c.score,
         postedAt: c.posted_at,
         isPublic: c.is_public,
-        // Roasts group by critic; ids can't collide with flavor groups on one photo
-        flavorId: c.humor_flavor_id ?? c.critic_id ?? 0,
-        flavorSlug: c.humor_flavors?.slug ?? c.critics?.slug ?? "",
-        flavorName: c.humor_flavors?.name ?? c.critics?.name ?? "",
-        critic: c.critics ? { slug: c.critics.slug, name: c.critics.name, emoji: c.critics.emoji } : null,
+        criticId: c.critic_id,
+        critic: { slug: c.critics.slug, name: c.critics.name, emoji: c.critics.emoji },
         rating: c.rating,
         tip: c.tip,
       }),
@@ -314,6 +318,7 @@ export async function getMyImages(): Promise<MyImage[]> {
     .from("images")
     .select("id, image_path, created_at, captions(is_public, score)")
     .eq("user_id", user.id)
+    .not("topic", "is", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -327,8 +332,8 @@ export async function getMyImages(): Promise<MyImage[]> {
       id: row.id,
       url: publicImageUrl(supabase, row.image_path),
       createdAt: row.created_at,
-      totalCaptions: captions.length,
-      postedCaptions: captions.filter((c) => c.is_public).length,
+      totalRoasts: captions.length,
+      postedRoasts: captions.filter((c) => c.is_public).length,
       totalScore: captions.reduce((sum, c) => sum + c.score, 0),
     };
   });
@@ -361,7 +366,7 @@ export async function getMyVotes(captionIds: string[]): Promise<Record<string, V
   return votes;
 }
 
-// Caption runs the user started in the last 24 hours, failed ones included.
+// Roast runs the user started in the last 24 hours, failed ones included.
 // Null when the count fails, so callers can refuse to spend quota they can't
 // account for.
 export async function countRecentGenerations(userId: string): Promise<number | null> {

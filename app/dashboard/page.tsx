@@ -45,7 +45,7 @@ export default async function DashboardPage() {
         <dl className="mt-8 grid grid-cols-3 gap-3">
           {[
             { label: "Photos", value: photos.length },
-            { label: "Captions posted", value: photos.reduce((n, p) => n + p.postedCaptions, 0) },
+            { label: "Captions posted", value: photos.reduce((n, p) => n + p.postedRoasts, 0) },
             { label: "Total score", value: photos.reduce((n, p) => n + p.totalScore, 0) },
           ].map((stat) => (
             <div key={stat.label} className={`${card} p-4`}>
@@ -159,7 +159,7 @@ function PhotoTile({ photo }: { photo: MyImage }) {
           <div className="px-3 py-2 text-sm">
             <p className="font-mono text-xs text-muted">{formatDate(new Date(photo.createdAt))}</p>
             <p className="mt-0.5 font-medium tabular-nums">
-              {photo.postedCaptions} of {photo.totalCaptions} posted · score {photo.totalScore}
+              {photo.postedRoasts} of {photo.totalRoasts} posted · score {photo.totalScore}
             </p>
           </div>
         </div>
