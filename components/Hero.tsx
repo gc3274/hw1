@@ -93,7 +93,9 @@ export default function Hero({ preview }: { preview: PreviewRoast[] }) {
           </ol>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <div className="w-64"><GoogleSignInButton /></div>
+            <div className="w-64">
+              <GoogleSignInButton />
+            </div>
             {/* A plain form, so it works before (or without) JavaScript */}
             <form action={continueAsGuest}>
               <button type="submit" className={button("secondary")}>

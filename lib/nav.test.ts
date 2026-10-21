@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { activeNavIndex, postHref, type NavItem } from "@/lib/nav";
 
 const ITEMS: NavItem[] = [
-  { href: "/", label: "Feed", exact: true },
-  { href: "/new", label: "New post" },
+  { href: "/", label: "Roasts", exact: true },
+  { href: "/new", label: "Get roasted" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/profile", label: "Profile" },
 ];

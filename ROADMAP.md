@@ -5,9 +5,9 @@ Deconstructive Criticism: post what you made (a meal, a drawing, your room or yo
 Each feature goes through a short design pass before it's built: what it does, open questions, and a yes from the product owner. Statuses:
 
 - ✅ Shipped
-- 🚧 In progress
 - 📝 Next (designed or ready for design)
 - 💡 Idea (backlog)
+- Retired: taken out of the app, its data kept
 
 ---
 

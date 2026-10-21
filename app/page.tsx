@@ -150,7 +150,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   );
 }
 
-function EmptyFeed({ sort, topic, postTo }: { sort: FeedSort; topic: Topic | null; postTo: string }) {
+function EmptyFeed({ sort, topic, postTo }: { sort: FeedSort; topic: Topic | null; postTo: ReturnType<typeof postHref> }) {
   return (
     <div className={`${card} mt-6 border-dashed p-6 text-center`}>
       {sort === "top" ? (

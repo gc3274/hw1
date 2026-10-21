@@ -75,13 +75,15 @@ export function groupByCritic<T extends { criticId: number; critic: CriticTag }>
   const groups = new Map<number, CriticGroup<T>>();
   for (const item of items) {
     const group = groups.get(item.criticId);
-    if (group) group.roasts.push(item);
-    else
+    if (group) {
+      group.roasts.push(item);
+    } else {
       groups.set(item.criticId, {
         id: item.criticId,
         name: `${item.critic.emoji} ${item.critic.name}`,
         roasts: [item],
       });
+    }
   }
   return [...groups.values()];
 }

@@ -7,7 +7,7 @@ import type { Profile } from "@/lib/dal";
 import { button, focusRing } from "./ui";
 
 // Short band at the top of the feed: a greeting and the one next step.
-// Null profile means a guest who chose to look around.
+// Null profile means a guest who picked "Browse as a guest".
 export default function WelcomeBand({ profile }: { profile: Profile | null }) {
   if (!profile) {
     return (

@@ -39,7 +39,7 @@ The general panel judges every topic: 🗽 Jaded New Yorker, 📱 Chronically On
 |---|---|---|
 | `/` | The roast feed (Top this week / New, topic chips, Show more) | Everyone. A first-time signed-out visitor is sent to `/welcome` |
 | `/welcome` | Landing page with a preview of top roasts and "Browse as a guest" | Signed out (signed-in users go to `/`) |
-| `/login` | Google sign-in | Everyone |
+| `/login` | Google sign-in | Signed out (signed-in users go to `/`) |
 | `/auth/callback` | OAuth code exchange (GET), then `/` or `/onboarding` | Everyone |
 | `/onboarding` | Add your name | Signed in |
 | `/new` | Upload a photo for roasting (`maxDuration = 60`) | Signed in, profile complete |
@@ -243,7 +243,7 @@ commit;
 
 ## Admin area
 
-The admin area is a separate Next.js app: [gc3274/hw6](https://github.com/gc3274/hw6). It runs on port 3001 against the same Supabase project and Google login. It has creative stats, users (read), roasts (create, read, update, delete) and votes and ratings (read). Every route needs a Google sign-in plus `profiles.is_superadmin = true`, and its service-role key is server-only and reachable only through that check.
+The admin area is a separate Next.js app: [gc3274/hw6](https://github.com/gc3274/hw6). It runs on port 3001 against the same Supabase project and Google login. It has creative stats, users (read), roasts (create, read, update, delete) and votes and ratings (read). Every admin page and server action needs a Google sign-in plus `profiles.is_superadmin = true`; only its sign-in page and OAuth callback are open, and a signed-in non-admin gets a "not authorized" page. Its service-role key is server-only and reachable only through that check.
 
 **Won't the first admin be locked out?** It would be, if the admin area were the only way to set the flag, because the admin area itself requires the flag. So the first superadmin is set out-of-band, with the bootstrap SQL above in the Supabase SQL editor. The editor runs as the database owner (`postgres`), so it bypasses row level security, the column grants and the guard trigger. Users can't promote themselves: the signed-in role has no insert or update grant on `is_superadmin`, and the trigger refuses everyone else, including the admin area's own service key, so a leaked key or a bug in the admin area can't mint admins. If every admin is ever lost, the same SQL editor path restores access. The database owner, not the app, is the root of trust.
 
