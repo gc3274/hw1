@@ -7,7 +7,7 @@
 --
 -- Adds:
 --   * profiles.is_superadmin (false for everyone; the first admin is set by
---     hand in the SQL editor, see README "Admin access")
+--     hand in the SQL editor, see README "Superadmin flag")
 --   * column-level insert/update grants on profiles, so people keep saving
 --     their own profile but can never write the flag
 --   * a trigger that refuses flag changes from anyone but the database owner
