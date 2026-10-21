@@ -4,9 +4,9 @@ import SpotlightCard from "@/components/bits/SpotlightCard";
 import type { VoteValue } from "@/lib/captions";
 import type { FeedRoast } from "@/lib/images";
 import { topicInfo } from "@/lib/roasts";
-import { flavorChip } from "./CaptionCard";
 import { RatingBadge, RoastTip } from "./RoastBits";
 import PhotoMorph from "./PhotoMorph";
+import { topicChip } from "./ui";
 import VoteButtons from "./VoteButtons";
 
 const SIZES = "(min-width: 1024px) 464px, (min-width: 640px) 50vw, 100vw";
@@ -61,7 +61,7 @@ export default function RoastCard({
           {morph ? <PhotoMorph imageId={roast.image.id}>{photo}</PhotoMorph> : photo}
         </Link>
         <footer className="flex items-center justify-between gap-3 border-t border-line px-4 py-2">
-          <span className={flavorChip}>
+          <span className={topicChip}>
             {topic ? `${topic.emoji} ${topic.label}` : "✨ Anything"}
           </span>
           <VoteButtons

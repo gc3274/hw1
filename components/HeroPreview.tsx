@@ -3,18 +3,25 @@
 import Image from "next/image";
 import CardSwap, { Card } from "@/components/bits/CardSwap";
 import { usePrefersReducedMotion } from "@/components/fx/hooks";
+import { RatingBadge } from "./RoastBits";
 
-export type PreviewCaption = { id: string; content: string; imageUrl: string; flavor: string };
+export type PreviewRoast = {
+  id: string;
+  content: string;
+  imageUrl: string;
+  critic: string;
+  rating: number | null;
+};
 
-// Decorative preview of real captions on /welcome, so it's hidden from screen readers.
+// Decorative preview of real roasts on /welcome, so it's hidden from screen readers.
 // Nudged left on phones so the cards fanned out to the right stay on screen.
-export default function HeroPreview({ captions }: { captions: PreviewCaption[] }) {
+export default function HeroPreview({ roasts }: { roasts: PreviewRoast[] }) {
   const reduce = usePrefersReducedMotion();
 
   return (
     <div aria-hidden="true" className="relative mx-auto h-[380px] w-[280px] max-sm:-translate-x-6 sm:h-[440px] sm:w-[330px]">
       <CardSwap
-        key={captions.map((c) => c.id).join()}
+        key={roasts.map((r) => r.id).join()}
         width="100%"
         height="100%"
         cardDistance={36}
@@ -24,11 +31,11 @@ export default function HeroPreview({ captions }: { captions: PreviewCaption[] }
         skewAmount={4}
         paused={reduce}
       >
-        {captions.map((caption, i) => (
-          <Card key={caption.id} className="overflow-hidden rounded-2xl border border-line bg-ink shadow-2xl">
+        {roasts.map((roast, i) => (
+          <Card key={roast.id} className="overflow-hidden rounded-2xl border border-line bg-ink shadow-2xl">
             <div className="relative h-3/5 bg-white/5">
               <Image
-                src={caption.imageUrl}
+                src={roast.imageUrl}
                 alt=""
                 fill
                 sizes="330px"
@@ -37,9 +44,12 @@ export default function HeroPreview({ captions }: { captions: PreviewCaption[] }
               />
             </div>
             <div className="p-4">
-              <span className="text-xs font-medium text-lime">{caption.flavor}</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate text-xs font-medium text-lime">{roast.critic}</span>
+                <RatingBadge rating={roast.rating} />
+              </div>
               <p className="mt-1 line-clamp-3 font-display text-lg leading-snug font-bold text-pretty">
-                {caption.content}
+                {roast.content}
               </p>
             </div>
           </Card>

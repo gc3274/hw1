@@ -120,7 +120,7 @@ function PublicCaptions({
   return (
     <>
       <Link
-        href="/roast"
+        href="/"
         className={`mb-6 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:text-fg hover:underline ${focusRing}`}
       >
         <span aria-hidden="true">←</span> Back to roasts

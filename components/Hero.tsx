@@ -6,7 +6,7 @@ import SplitText from "@/components/bits/SplitText";
 import StarBorder from "@/components/bits/StarBorder";
 import AuroraBackdrop from "@/components/fx/AuroraBackdrop";
 import MotionSwap from "@/components/fx/MotionSwap";
-import HeroPreview, { type PreviewCaption } from "./HeroPreview";
+import HeroPreview, { type PreviewRoast } from "./HeroPreview";
 import { button } from "./ui";
 
 const HEADLINE = "Make your camera roll";
@@ -15,7 +15,7 @@ const STEPS = ["Snap a photo", "AI writes the jokes", "Everyone votes"];
 const subjectChip = "inline-flex overflow-hidden rounded-lg bg-lime px-2 text-ink";
 
 // Full-height title screen on /welcome for first-time signed-out visitors
-export default function Hero({ preview }: { preview: PreviewCaption[] }) {
+export default function Hero({ preview }: { preview: PreviewRoast[] }) {
   return (
     <section
       aria-labelledby="hero-heading"
@@ -102,7 +102,7 @@ export default function Hero({ preview }: { preview: PreviewCaption[] }) {
           </div>
         </div>
 
-        {preview.length > 0 && <HeroPreview captions={preview} />}
+        {preview.length > 0 && <HeroPreview roasts={preview} />}
       </div>
     </section>
   );

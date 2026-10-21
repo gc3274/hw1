@@ -15,22 +15,18 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TOP_WINDOW_MS = 7 * DAY_MS;
 
-export type FeedCaption = {
+export type FeedRoast = {
   id: string;
   content: string;
   upvotes: number;
   downvotes: number;
   score: number;
   postedAt: string;
-  flavor: { slug: string; name: string };
-  image: { id: string; url: string };
-};
-
-export type FeedRoast = FeedCaption & {
   critic: CriticTag;
   rating: number | null;
   tip: string | null;
   topic: string;
+  image: { id: string; url: string };
 };
 
 export type ImageCaption = {
@@ -67,15 +63,17 @@ export type MyImage = {
 
 // Rows as PostgREST returns them. Many-to-one embeds come back as an object,
 // or null when RLS hides the parent row.
-type FeedRow = {
+type RoastRow = {
   id: string;
   content: string;
   upvotes: number;
   downvotes: number;
   score: number;
   posted_at: string;
-  humor_flavors: { slug: string; name: string } | null;
-  images: { id: string; image_path: string } | null;
+  rating: number | null;
+  tip: string | null;
+  critics: CriticTag | null;
+  images: { id: string; image_path: string; topic: string | null } | null;
 };
 
 type ImageCaptionRow = {
@@ -121,56 +119,6 @@ export function publicImageUrl(supabase: Supabase, path: string): string {
   return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-export async function getFeed(
-  sort: FeedSort,
-  limit: number,
-): Promise<{ captions: FeedCaption[]; hasMore: boolean; error: string | null }> {
-  const supabase = await createClient();
-  let query = supabase
-    .from("captions")
-    .select(
-      "id, content, upvotes, downvotes, score, posted_at, humor_flavors(slug, name), images(id, image_path)",
-    )
-    .eq("is_public", true)
-    // Roasts have their own tab
-    .not("humor_flavor_id", "is", null);
-
-  if (sort === "top") {
-    const since = new Date(Date.now() - TOP_WINDOW_MS).toISOString();
-    query = query
-      .gte("posted_at", since)
-      .order("score", { ascending: false })
-      .order("posted_at", { ascending: false });
-  } else {
-    query = query.order("posted_at", { ascending: false });
-  }
-
-  // One extra row tells us whether "Show more" has anything to show
-  const { data, error } = await query.order("id").limit(limit + 1);
-  if (error) {
-    console.error("Loading the feed failed:", error.message);
-    return { captions: [], hasMore: false, error: error.message };
-  }
-
-  const rows = (data ?? []) as unknown as FeedRow[];
-  const captions = rows.slice(0, limit).flatMap((row): FeedCaption[] => {
-    if (!row.images || !row.humor_flavors) return [];
-    return [
-      {
-        id: row.id,
-        content: row.content,
-        upvotes: row.upvotes,
-        downvotes: row.downvotes,
-        score: row.score,
-        postedAt: row.posted_at,
-        flavor: { slug: row.humor_flavors.slug, name: row.humor_flavors.name },
-        image: { id: row.images.id, url: publicImageUrl(supabase, row.images.image_path) },
-      },
-    ];
-  });
-  return { captions, hasMore: rows.length > limit, error: null };
-}
-
 // The panel for a topic: its expert (if it has one) plus the general critics
 export async function getCritics(topic: Topic): Promise<Critic[]> {
   const supabase = await createClient();
@@ -186,13 +134,6 @@ export async function getCritics(topic: Topic): Promise<Critic[]> {
   }
   return (data ?? []) as Critic[];
 }
-
-type RoastRow = Omit<FeedRow, "humor_flavors" | "images"> & {
-  rating: number | null;
-  tip: string | null;
-  critics: CriticTag | null;
-  images: { id: string; image_path: string; topic: string | null } | null;
-};
 
 export async function getRoastFeed(
   sort: FeedSort,
@@ -221,6 +162,7 @@ export async function getRoastFeed(
     query = query.order("posted_at", { ascending: false });
   }
 
+  // One extra row tells us whether "Show more" has anything to show
   const { data, error } = await query.order("id").limit(limit + 1);
   if (error) {
     console.error("Loading the roast feed failed:", error.message);
@@ -238,7 +180,6 @@ export async function getRoastFeed(
         downvotes: row.downvotes,
         score: row.score,
         postedAt: row.posted_at,
-        flavor: { slug: row.critics.slug, name: row.critics.name },
         critic: row.critics,
         rating: row.rating,
         tip: row.tip,

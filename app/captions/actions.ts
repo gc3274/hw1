@@ -135,12 +135,6 @@ export async function saveCaptionChoices(
     .eq("image_id", input.imageId)
     .eq("is_public", true);
   if (error) console.error("Counting public captions failed:", error.message);
-  // Roast posts go back to the Roast tab
-  const { data: image } = await supabase
-    .from("images")
-    .select("topic")
-    .eq("id", input.imageId)
-    .maybeSingle<{ topic: string | null }>();
   refresh();
-  redirect(doneHref(error ? input.toPost.length > 0 : (count ?? 0) > 0, Boolean(image?.topic)));
+  redirect(doneHref(error ? input.toPost.length > 0 : (count ?? 0) > 0));
 }

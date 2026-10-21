@@ -28,3 +28,6 @@ export function button(variant: ButtonVariant = "primary", size: ButtonSize = "m
 export const card = "rounded-2xl border border-line bg-surface";
 
 export const errorBox = "rounded-xl border border-rose/40 bg-rose/10 px-4 py-3 text-sm text-rose";
+
+export const topicChip =
+  "inline-block min-w-0 max-w-full truncate rounded-full border border-line bg-white/5 px-2.5 py-0.5 text-xs font-medium text-fg/80";

@@ -25,7 +25,7 @@ export default async function NewPostPage() {
     <PageTransition>
       <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:p-8">
         <Link
-          href="/roast"
+          href="/"
           className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:underline ${focusRing}`}
         >
           <span aria-hidden="true">←</span> Back to roasts
@@ -46,7 +46,7 @@ export default async function NewPostPage() {
               tomorrow for more. In the meantime, go vote on everyone else’s roasts.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Link href="/roast" className={button("primary", "sm")}>
+              <Link href="/" className={button("primary", "sm")}>
                 See roasts
               </Link>
               <Link href="/dashboard" className={button("secondary", "sm")}>

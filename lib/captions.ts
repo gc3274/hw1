@@ -140,10 +140,9 @@ export function doneButtonLabel({ toPost, toHide }: CaptionChoiceDiff): string {
   return "Done";
 }
 
-// Posted captions show up under New; with nothing posted, the photo lives on the dashboard
-export function doneHref(anyPublic: boolean, roast = false) {
-  if (!anyPublic) return "/dashboard";
-  return roast ? "/roast?sort=new" : "/?sort=new";
+// Posted roasts show up under New; with nothing posted, the photo lives on the dashboard
+export function doneHref(anyPublic: boolean) {
+  return anyPublic ? "/?sort=new" : "/dashboard";
 }
 
 export function validateCaptionChoices(

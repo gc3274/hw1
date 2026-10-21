@@ -15,7 +15,7 @@ import type { CriticGroup } from "@/lib/roasts";
 const SAVE_FAILED = "Couldn’t save your choices. Please try again.";
 
 // The back link and Discard both leave for the same place
-const BACK_HREF = "/roast";
+const BACK_HREF = "/";
 
 // The owner's view of a photo: every caption starts private, switches are
 // local until Done saves them all at once.
@@ -161,7 +161,7 @@ export default function CaptionReview({
                     {pending ? "Saving…" : doneButtonLabel(diff)}
                   </button>
                 ) : (
-                  <Link href={doneHref(postedCount > 0, true)} className={button("primary", "sm")}>
+                  <Link href={doneHref(postedCount > 0)} className={button("primary", "sm")}>
                     Done
                   </Link>
                 )}

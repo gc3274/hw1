@@ -21,6 +21,7 @@ import {
   validateCaptionChoices,
   type VoteValue,
 } from "@/lib/captions";
+import { feedHref } from "@/lib/roasts";
 
 const USER = "0b6f3a52-1c2d-4e5f-8a9b-0c1d2e3f4a5b";
 const OTHER = "9f8e7d6c-5b4a-4321-8fed-cba987654321";
@@ -319,6 +320,10 @@ describe("doneHref", () => {
   it("goes to New when anything is public, otherwise the dashboard", () => {
     expect(doneHref(true)).toBe("/?sort=new");
     expect(doneHref(false)).toBe("/dashboard");
+  });
+
+  it("lands on the same New feed the sort tab links to", () => {
+    expect(doneHref(true)).toBe(feedHref("new", null));
   });
 });
 
