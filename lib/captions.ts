@@ -148,6 +148,19 @@ export function firstOfEachImage(items: { image: { id: string } }[]): boolean[] 
   });
 }
 
+// The first item for each photo, up to max, so a preview never repeats a photo
+export function onePerImage<T extends { image: { id: string } }>(items: T[], max = Infinity): T[] {
+  const seen = new Set<string>();
+  const picked: T[] = [];
+  for (const item of items) {
+    if (picked.length >= max) break;
+    if (seen.has(item.image.id)) continue;
+    seen.add(item.image.id);
+    picked.push(item);
+  }
+  return picked;
+}
+
 export const MAX_CAPTION_CHOICES = 50;
 
 export type CaptionChoiceDiff = { toPost: string[]; toHide: string[] };
@@ -170,8 +183,8 @@ export function diffCaptionChoices(
 
 export function doneButtonLabel({ toPost, toHide }: CaptionChoiceDiff): string {
   if (toHide.length > 0) return "Save changes";
-  if (toPost.length === 1) return "Post 1 caption";
-  if (toPost.length > 1) return `Post ${toPost.length} captions`;
+  if (toPost.length === 1) return "Post 1 roast";
+  if (toPost.length > 1) return `Post ${toPost.length} roasts`;
   return "Done";
 }
 
@@ -197,7 +210,7 @@ export function validateCaptionChoices(
   if (!isUuid(imageId) || !post || !hide) return { ok: false, error: "Invalid request." };
   if (post.length === 0 && hide.length === 0) return { ok: false, error: "Nothing to save." };
   if (post.length > MAX_CAPTION_CHOICES || hide.length > MAX_CAPTION_CHOICES) {
-    return { ok: false, error: "Too many captions at once." };
+    return { ok: false, error: "Too many roasts at once." };
   }
   if (post.some((id) => hide.includes(id))) return { ok: false, error: "Invalid request." };
   return { ok: true, imageId, toPost: post, toHide: hide };

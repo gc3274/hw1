@@ -1,6 +1,6 @@
 // Shared by server code and client components, so nothing here may touch
 // the server, Supabase or env. Limits match the checks in the roast migration.
-import { CAPTION_MAX, cleanCaption } from "@/lib/captions";
+import { CAPTION_MAX, cleanCaption, type FeedSort } from "@/lib/captions";
 
 // What the prompt asks for; CAPTION_MAX is the hard limit the DB enforces
 export const ROAST_TARGET = 140;
@@ -18,6 +18,7 @@ export const TOPICS = [
 
 export type Topic = (typeof TOPICS)[number]["slug"];
 export type Critic = { id: number; slug: string; name: string; emoji: string; description: string };
+export type CriticTag = { slug: string; name: string; emoji: string };
 export type RoastDraft = { criticId: number; content: string; tip: string | null; rating: number | null };
 export type ParsedRoasts =
   | { ok: true; roasts: RoastDraft[] }
@@ -32,6 +33,57 @@ export function parseTopic(v: unknown): Topic | null {
 
 export function topicInfo(slug: string | null) {
   return TOPICS.find((t) => t.slug === slug) ?? null;
+}
+
+// The feed lives at "/"; Top with no topic stays the bare home page
+export function feedHref(sort: FeedSort, topic: Topic | null, n?: number): string {
+  const params = new URLSearchParams();
+  if (sort !== "top") params.set("sort", sort);
+  if (topic) params.set("topic", topic);
+  if (n) params.set("n", String(n));
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+}
+
+// Names match the critics seed. The general critics sit on every panel, so
+// their lines fit any topic; each topic adds only its own expert.
+const TOPIC_LINES: Record<Topic, string[]> = {
+  food: ["Chef Scorch is tasting it…", "Checking the seasoning…"],
+  art: ["Vivienne Vex is sighing loudly…", "Squinting at the brushwork…"],
+  room: ["Reno Randy is eyeing the walls…", "Counting the cables…"],
+  fit: ["Margaux is checking the hem…", "Judging the color story…"],
+  anything: ["Working out what this even is…", "Turning it over for a better angle…"],
+};
+
+const PANEL_LINES = [
+  "Midwest Mom is finding something nice to say…",
+  "The Jaded New Yorker has seen worse…",
+  "Chronically Online is typing…",
+  "Sharpening the red pens…",
+];
+
+export function writingLines(topic: Topic): string[] {
+  return [...TOPIC_LINES[topic], ...PANEL_LINES];
+}
+
+export type CriticGroup<T> = { id: number; name: string; roasts: T[] };
+
+// Groups by critic in the order they first appear, so the input order doesn't matter
+export function groupByCritic<T extends { criticId: number; critic: CriticTag }>(
+  items: T[],
+): CriticGroup<T>[] {
+  const groups = new Map<number, CriticGroup<T>>();
+  for (const item of items) {
+    const group = groups.get(item.criticId);
+    if (group) group.roasts.push(item);
+    else
+      groups.set(item.criticId, {
+        id: item.criticId,
+        name: `${item.critic.emoji} ${item.critic.name}`,
+        roasts: [item],
+      });
+  }
+  return [...groups.values()];
 }
 
 // Average of the critics' scores, one decimal; null when nobody scored it

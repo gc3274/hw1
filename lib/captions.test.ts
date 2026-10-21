@@ -14,6 +14,7 @@ import {
   isOwnImagePath,
   isUuid,
   nextVote,
+  onePerImage,
   parseCaptionResponse,
   parseFeedLimit,
   parseFeedSort,
@@ -363,6 +364,25 @@ describe("firstOfEachImage", () => {
   });
 });
 
+describe("onePerImage", () => {
+  const item = (key: string, id: string) => ({ key, image: { id } });
+  const feed = [item("a1", "a"), item("b1", "b"), item("a2", "a"), item("c1", "c"), item("b2", "b")];
+
+  it("keeps the first item for each photo, in order", () => {
+    expect(onePerImage(feed).map((i) => i.key)).toEqual(["a1", "b1", "c1"]);
+  });
+
+  it("stops at max", () => {
+    expect(onePerImage(feed, 2).map((i) => i.key)).toEqual(["a1", "b1"]);
+    expect(onePerImage(feed, 0)).toEqual([]);
+  });
+
+  it("handles an empty list", () => {
+    expect(onePerImage([])).toEqual([]);
+    expect(onePerImage([], 3)).toEqual([]);
+  });
+});
+
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 const C = "33333333-3333-4333-8333-333333333333";
@@ -415,8 +435,8 @@ describe("doneButtonLabel", () => {
   });
 
   it("counts posts, singular and plural", () => {
-    expect(doneButtonLabel({ toPost: [A], toHide: [] })).toBe("Post 1 caption");
-    expect(doneButtonLabel({ toPost: [A, B, C], toHide: [] })).toBe("Post 3 captions");
+    expect(doneButtonLabel({ toPost: [A], toHide: [] })).toBe("Post 1 roast");
+    expect(doneButtonLabel({ toPost: [A, B, C], toHide: [] })).toBe("Post 3 roasts");
   });
 
   it("says Save changes whenever something is being hidden", () => {
@@ -469,14 +489,14 @@ describe("validateCaptionChoices", () => {
     expect(capped.ok && capped.toPost).toHaveLength(MAX_CAPTION_CHOICES);
     expect(validateCaptionChoices(IMG, uuids(MAX_CAPTION_CHOICES + 1), [])).toEqual({
       ok: false,
-      error: "Too many captions at once.",
+      error: "Too many roasts at once.",
     });
   });
 
   it("applies the cap to the hide list too", () => {
     expect(validateCaptionChoices(IMG, [], uuids(MAX_CAPTION_CHOICES + 1))).toEqual({
       ok: false,
-      error: "Too many captions at once.",
+      error: "Too many roasts at once.",
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeNavIndex, type NavItem } from "@/lib/nav";
+import { activeNavIndex, postHref, type NavItem } from "@/lib/nav";
 
 const ITEMS: NavItem[] = [
   { href: "/", label: "Feed", exact: true },
@@ -25,5 +25,20 @@ describe("activeNavIndex", () => {
 
   it("returns -1 for an empty list", () => {
     expect(activeNavIndex([], "/")).toBe(-1);
+  });
+});
+
+describe("postHref", () => {
+  it("sends guests to sign in", () => {
+    expect(postHref(false, false)).toBe("/login");
+    expect(postHref(false, true)).toBe("/login");
+  });
+
+  it("sends signed-in users without a finished profile to onboarding", () => {
+    expect(postHref(true, false)).toBe("/onboarding");
+  });
+
+  it("sends users who can post to the upload page", () => {
+    expect(postHref(true, true)).toBe("/new");
   });
 });

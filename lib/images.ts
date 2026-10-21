@@ -9,7 +9,7 @@ import {
   type Flavor,
   type VoteValue,
 } from "@/lib/captions";
-import type { Critic, Topic } from "@/lib/roasts";
+import type { Critic, CriticTag, Topic } from "@/lib/roasts";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -26,8 +26,6 @@ export type FeedCaption = {
   flavor: { slug: string; name: string };
   image: { id: string; url: string };
 };
-
-export type CriticTag = { slug: string; name: string; emoji: string };
 
 export type FeedRoast = FeedCaption & {
   critic: CriticTag;
