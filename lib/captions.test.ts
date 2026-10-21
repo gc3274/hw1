@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  CAPTION_MAX,
-  CAPTIONS_PER_FLAVOR,
   CONTEXT_MAX,
   FEED_MAX,
   FEED_PAGE_SIZE,
   MAX_CAPTION_CHOICES,
   applyVote,
+  cleanCaption,
   diffCaptionChoices,
   doneButtonLabel,
   doneHref,
@@ -15,28 +14,17 @@ import {
   isUuid,
   nextVote,
   onePerImage,
-  parseCaptionResponse,
   parseFeedLimit,
   parseFeedSort,
   parseVoteValue,
   readContext,
   validateCaptionChoices,
-  type Flavor,
   type VoteValue,
 } from "@/lib/captions";
 
 const USER = "0b6f3a52-1c2d-4e5f-8a9b-0c1d2e3f4a5b";
 const OTHER = "9f8e7d6c-5b4a-4321-8fed-cba987654321";
 const FILE = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
-
-const FLAVORS: Flavor[] = [
-  { id: 1, slug: "midwest-transplant", name: "Midwest transplant", description: "polite" },
-  { id: 2, slug: "jaded-new-yorker", name: "Jaded New Yorker", description: "deadpan" },
-  { id: 3, slug: "chronically-online", name: "Chronically online", description: "lowercase" },
-];
-
-const response = (captions: unknown, allowed: unknown = true) =>
-  JSON.stringify({ allowed, captions });
 
 describe("nextVote", () => {
   it.each<[VoteValue, 1 | -1, VoteValue]>([
@@ -202,147 +190,29 @@ describe("parseFeedLimit", () => {
   });
 });
 
-describe("parseCaptionResponse", () => {
-  it("rejects bad JSON", () => {
-    expect(parseCaptionResponse("{not json", FLAVORS)).toEqual({ ok: false, reason: "invalid" });
-    expect(parseCaptionResponse("", FLAVORS)).toEqual({ ok: false, reason: "invalid" });
-    expect(parseCaptionResponse("null", FLAVORS)).toEqual({ ok: false, reason: "invalid" });
-    expect(parseCaptionResponse("[1,2]", FLAVORS)).toEqual({ ok: false, reason: "invalid" });
+describe("cleanCaption", () => {
+  it("removes wrapping quotes, straight and curly", () => {
+    expect(cleanCaption('"Ope, sorry about the rat"')).toBe("Ope, sorry about the rat");
+    expect(cleanCaption("'Tuesday.'")).toBe("Tuesday.");
+    expect(cleanCaption("“Twelve dollars for a bagel”")).toBe("Twelve dollars for a bagel");
+    expect(cleanCaption("‘Fine.’")).toBe("Fine.");
+    expect(cleanCaption('""')).toBe("");
   });
 
-  it("passes on allowed:false", () => {
-    const raw = response([{ flavor_slug: "jaded-new-yorker", text: "nope" }], false);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({ ok: false, reason: "rejected" });
+  it("collapses whitespace", () => {
+    expect(cleanCaption('  "Ope,   sorry   about the rat"  ')).toBe("Ope, sorry about the rat");
+    expect(cleanCaption("Seen\n worse  on the\t1 train.")).toBe("Seen worse on the 1 train.");
   });
 
-  it("reads a full response in flavor order", () => {
-    const raw = response([
-      { flavor_slug: "jaded-new-yorker", text: "Seen worse on the 1 train." },
-      { flavor_slug: "midwest-transplant", text: "Back home this costs two dollars." },
-      { flavor_slug: "jaded-new-yorker", text: "Tuesday." },
-      { flavor_slug: "midwest-transplant", text: "Ope, is this normal here?" },
-    ]);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [
-        { flavorId: 1, content: "Back home this costs two dollars." },
-        { flavorId: 1, content: "Ope, is this normal here?" },
-        { flavorId: 2, content: "Seen worse on the 1 train." },
-        { flavorId: 2, content: "Tuesday." },
-      ],
-    });
+  it("strips trailing word hashtags", () => {
+    expect(cleanCaption("“Twelve dollars for a bagel” #nyc #columbia")).toBe("Twelve dollars for a bagel");
+    expect(cleanCaption("'Tuesday.' #NYC")).toBe("Tuesday.");
+    expect(cleanCaption("#tbt #mood")).toBe("");
   });
 
-  it("drops unknown flavors and malformed items", () => {
-    const raw = response([
-      { flavor_slug: "dad-jokes", text: "Unknown flavor" },
-      { flavor_slug: "chronically-online", text: "pov: it's 2am in butler" },
-      { flavor_slug: "jaded-new-yorker" },
-      { text: "No flavor at all" },
-      "just a string",
-      null,
-    ]);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [{ flavorId: 3, content: "pov: it's 2am in butler" }],
-    });
-  });
-
-  it("drops captions over the length limit", () => {
-    const raw = response([
-      { flavor_slug: "jaded-new-yorker", text: "x".repeat(CAPTION_MAX + 1) },
-      { flavor_slug: "jaded-new-yorker", text: "y".repeat(CAPTION_MAX) },
-    ]);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [{ flavorId: 2, content: "y".repeat(CAPTION_MAX) }],
-    });
-  });
-
-  it("keeps a partial result", () => {
-    const raw = response([{ flavor_slug: "chronically-online", text: "not the dining hall again" }]);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [{ flavorId: 3, content: "not the dining hall again" }],
-    });
-  });
-
-  it("dedupes case-insensitively, across flavors", () => {
-    const raw = response([
-      { flavor_slug: "jaded-new-yorker", text: "Classic Tuesday." },
-      { flavor_slug: "jaded-new-yorker", text: "classic tuesday." },
-      { flavor_slug: "chronically-online", text: "CLASSIC TUESDAY." },
-      { flavor_slug: "chronically-online", text: "me when the 1 train" },
-    ]);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [
-        { flavorId: 2, content: "Classic Tuesday." },
-        { flavorId: 3, content: "me when the 1 train" },
-      ],
-    });
-  });
-
-  it(`keeps at most ${CAPTIONS_PER_FLAVOR} per flavor`, () => {
-    const raw = response([
-      { flavor_slug: "jaded-new-yorker", text: "One." },
-      { flavor_slug: "jaded-new-yorker", text: "Two." },
-      { flavor_slug: "jaded-new-yorker", text: "Three." },
-    ]);
-    const result = parseCaptionResponse(raw, FLAVORS);
-    expect(result).toEqual({
-      ok: true,
-      captions: [
-        { flavorId: 2, content: "One." },
-        { flavorId: 2, content: "Two." },
-      ],
-    });
-  });
-
-  it("strips wrapping quotes, extra whitespace and trailing hashtags", () => {
-    const raw = response([
-      { flavor_slug: "midwest-transplant", text: '  "Ope,   sorry   about the rat"  ' },
-      { flavor_slug: "midwest-transplant", text: "“Twelve dollars for a bagel” #nyc #columbia" },
-      { flavor_slug: "jaded-new-yorker", text: "'Tuesday.' #NYC" },
-      { flavor_slug: "jaded-new-yorker", text: "We're #1 at waiting for the M4" },
-      { flavor_slug: "chronically-online", text: "#tbt #mood" },
-      { flavor_slug: "chronically-online", text: "\"\"" },
-    ]);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [
-        { flavorId: 1, content: "Ope, sorry about the rat" },
-        { flavorId: 1, content: "Twelve dollars for a bagel" },
-        { flavorId: 2, content: "Tuesday." },
-        { flavorId: 2, content: "We're #1 at waiting for the M4" },
-      ],
-    });
-  });
-
-  it("keeps a number tag like #1 at the end", () => {
-    const raw = response([{ flavor_slug: "jaded-new-yorker", text: "Still #1" }]);
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [{ flavorId: 2, content: "Still #1" }],
-    });
-  });
-
-  it("reads JSON wrapped in a code fence", () => {
-    const raw = "```json\n" + response([{ flavor_slug: "jaded-new-yorker", text: "Fine." }]) + "\n```";
-    expect(parseCaptionResponse(raw, FLAVORS)).toEqual({
-      ok: true,
-      captions: [{ flavorId: 2, content: "Fine." }],
-    });
-  });
-
-  it("is empty when nothing usable is left", () => {
-    expect(parseCaptionResponse(response([]), FLAVORS)).toEqual({ ok: false, reason: "empty" });
-    expect(parseCaptionResponse(JSON.stringify({ allowed: true }), FLAVORS)).toEqual({
-      ok: false,
-      reason: "empty",
-    });
-    const unknownOnly = response([{ flavor_slug: "dad-jokes", text: "Hi hungry" }]);
-    expect(parseCaptionResponse(unknownOnly, FLAVORS)).toEqual({ ok: false, reason: "empty" });
+  it("keeps a number tag like #1", () => {
+    expect(cleanCaption("Still #1")).toBe("Still #1");
+    expect(cleanCaption("We're #1 at waiting for the M4")).toBe("We're #1 at waiting for the M4");
   });
 });
 

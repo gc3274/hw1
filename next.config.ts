@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com", pathname: "/a-/**" },
     ],
   },
+  // Old roast-mode URLs; temporary (307), and the query string is passed through
+  async redirects() {
+    return [{ source: "/roast/new", destination: "/new", permanent: false }];
+  },
 };
 
 export default nextConfig;

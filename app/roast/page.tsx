@@ -52,7 +52,7 @@ export default async function RoastPage({ searchParams }: PageProps<"/roast">) {
     user ? getProfile().catch(() => null) : null,
   ]);
   const signedIn = Boolean(user);
-  const postHref = profile?.isComplete ? "/roast/new" : signedIn ? "/onboarding" : "/login";
+  const postHref = profile?.isComplete ? "/new" : signedIn ? "/onboarding" : "/login";
   const morphFlags = firstOfEachImage(feed.roasts);
 
   return (

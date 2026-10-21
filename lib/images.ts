@@ -6,7 +6,6 @@ import {
   IMAGE_BUCKET,
   isUuid,
   type FeedSort,
-  type Flavor,
   type VoteValue,
 } from "@/lib/captions";
 import type { Critic, CriticTag, Topic } from "@/lib/roasts";
@@ -117,20 +116,6 @@ type MyImageRow = {
 export function publicImageUrl(supabase: Supabase, path: string): string {
   return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
 }
-
-export const getFlavors = cache(async (): Promise<Flavor[]> => {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("humor_flavors")
-    .select("id, slug, name, description")
-    .order("sort_order");
-
-  if (error) {
-    console.error("Loading humor flavors failed:", error.message);
-    return [];
-  }
-  return (data ?? []) as Flavor[];
-});
 
 export async function getFeed(
   sort: FeedSort,

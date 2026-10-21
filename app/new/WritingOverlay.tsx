@@ -1,28 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import TextType from "@/components/bits/TextType";
 import { usePrefersReducedMotion } from "@/components/fx/hooks";
-
-const LINES = [
-  "Workshopping puns…",
-  "Consulting the bodega cat…",
-  "Asking the Butler night shift…",
-  "Rejecting a joke about the 1 train…",
-  "Running it past a jaded New Yorker…",
-];
-
-const ROAST_LINES = [
-  "Chef Scorch is tasting it…",
-  "Vivienne Vex is sighing loudly…",
-  "Midwest Mom is finding something nice to say…",
-  "Checking the seasoning…",
-  "Sharpening the knives…",
-];
+import { writingLines, type Topic } from "@/lib/roasts";
 
 // Decorative only: the real progress text lives in the form's role="status" line
-export default function WritingOverlay({ roast = false }: { roast?: boolean }) {
+export default function WritingOverlay({ topic }: { topic: Topic }) {
   const reduce = usePrefersReducedMotion();
-  const lines = roast ? ROAST_LINES : LINES;
+  // Stable per topic, so TextType doesn't restart on every render
+  const lines = useMemo(() => writingLines(topic), [topic]);
 
   return (
     <div aria-hidden="true" className="absolute inset-0 flex items-end bg-gradient-to-t from-ink/90 via-ink/30 to-transparent">

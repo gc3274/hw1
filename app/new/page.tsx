@@ -8,10 +8,11 @@ import { countRecentGenerations } from "@/lib/images";
 import NewPostForm from "./NewPostForm";
 
 export const metadata: Metadata = {
-  title: "New post",
+  title: "Get roasted",
 };
 
-// Writing captions can take a while. Set on the page, this also covers its server actions.
+// The critics can take a while (two Gemini attempts of up to 25s). Set on the page, this also
+// covers its server actions.
 export const maxDuration = 60;
 
 export default async function NewPostPage() {
@@ -24,15 +25,15 @@ export default async function NewPostPage() {
     <PageTransition>
       <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:p-8">
         <Link
-          href="/"
+          href="/roast"
           className={`mb-4 inline-flex items-center gap-1 rounded text-sm text-muted underline-offset-4 hover:underline ${focusRing}`}
         >
-          <span aria-hidden="true">←</span> Back to the feed
+          <span aria-hidden="true">←</span> Back to roasts
         </Link>
-        <h1 className="font-display text-3xl font-bold tracking-tight">New post</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Get roasted</h1>
         <p className="mt-1 text-sm text-muted">
-          Upload a photo and get AI-written captions in four flavors. Nothing is public until you post
-          it.
+          Post something you made. A panel of critics tears it apart, scores it out of 10, and leaves
+          you one real tip. Nothing is public until you post it.
         </p>
 
         {remaining === 0 ? (
@@ -41,15 +42,15 @@ export default async function NewPostPage() {
               That’s all for today
             </h2>
             <p className="mt-1 text-sm text-muted">
-              You’ve used all {DAILY_GENERATION_LIMIT} photo uploads for the last 24 hours. Come back
-              tomorrow for more. In the meantime, go vote on what everyone else posted.
+              You’ve used all {DAILY_GENERATION_LIMIT} uploads for the last 24 hours. Come back
+              tomorrow for more. In the meantime, go vote on everyone else’s roasts.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Link href="/" className={button("primary", "sm")}>
-                Go to the feed
+              <Link href="/roast" className={button("primary", "sm")}>
+                See roasts
               </Link>
               <Link href="/dashboard" className={button("secondary", "sm")}>
-                Your photos
+                Your posts
               </Link>
             </div>
           </section>
@@ -57,7 +58,7 @@ export default async function NewPostPage() {
           <section aria-labelledby="upload-heading" className={`${card} mt-8 p-4 sm:p-6`}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <h2 id="upload-heading" className="text-lg font-semibold">
-                Pick a photo
+                Pick a topic and a photo
               </h2>
               {remaining !== null && (
                 <p className="text-sm text-muted tabular-nums">

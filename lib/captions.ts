@@ -4,21 +4,13 @@ export const IMAGE_BUCKET = "images";
 export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const CONTEXT_MAX = 140;
 export const CAPTION_MAX = 200;
-// What the prompt asks for; CAPTION_MAX is the hard limit the DB enforces
-export const CAPTION_TARGET = 120;
-export const CAPTIONS_PER_FLAVOR = 2;
 export const DAILY_GENERATION_LIMIT = 5;
 export const FEED_PAGE_SIZE = 24;
 export const FEED_MAX = 96;
 
 export type VoteValue = -1 | 0 | 1;
-export type Flavor = { id: number; slug: string; name: string; description: string };
 export type VoteCounts = { upvotes: number; downvotes: number };
 export type FeedSort = "top" | "new";
-export type CaptionDraft = { flavorId: number; content: string };
-export type ParsedCaptions =
-  | { ok: true; captions: CaptionDraft[] }
-  | { ok: false; reason: "invalid" | "rejected" | "empty" };
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const UUID_RE = new RegExp(`^${UUID}$`, "i");
@@ -42,7 +34,6 @@ export function parseVoteValue(v: unknown): VoteValue | null {
 }
 
 // Postgres char_length counts code points, so cut on those and never split an emoji
-const charCount = (s: string) => Array.from(s).length;
 const clip = (s: string, max: number) => Array.from(s).slice(0, max).join("");
 
 const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -85,45 +76,6 @@ function stripHashtags(s: string) {
 
 export function cleanCaption(text: string) {
   return stripHashtags(stripQuotes(stripHashtags(collapse(text))));
-}
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
-// The model is asked for JSON with a schema, but its output is still untrusted
-export function parseCaptionResponse(raw: string, flavors: Flavor[]): ParsedCaptions {
-  let body: unknown;
-  try {
-    body = JSON.parse(raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
-  } catch {
-    return { ok: false, reason: "invalid" };
-  }
-  if (!isRecord(body)) return { ok: false, reason: "invalid" };
-  if (body.allowed === false) return { ok: false, reason: "rejected" };
-
-  const bySlug = new Map(flavors.map((f) => [f.slug, f.id]));
-  const perFlavor = new Map<number, string[]>(flavors.map((f) => [f.id, []]));
-  const seen = new Set<string>();
-
-  for (const item of Array.isArray(body.captions) ? body.captions : []) {
-    if (!isRecord(item) || typeof item.text !== "string") continue;
-    const flavorId = typeof item.flavor_slug === "string" ? bySlug.get(item.flavor_slug) : undefined;
-    if (flavorId === undefined) continue;
-
-    const content = cleanCaption(item.text);
-    if (!content || charCount(content) > CAPTION_MAX) continue;
-
-    const key = content.toLowerCase();
-    const bucket = perFlavor.get(flavorId)!;
-    if (seen.has(key) || bucket.length >= CAPTIONS_PER_FLAVOR) continue;
-    seen.add(key);
-    bucket.push(content);
-  }
-
-  const captions = flavors.flatMap((f) =>
-    perFlavor.get(f.id)!.map((content) => ({ flavorId: f.id, content })),
-  );
-  return captions.length > 0 ? { ok: true, captions } : { ok: false, reason: "empty" };
 }
 
 // Clicking the arrow you already picked clears it; the other arrow flips it

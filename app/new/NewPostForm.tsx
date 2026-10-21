@@ -27,20 +27,14 @@ type Stage = "preparing" | "uploading" | "writing";
 const STAGE_COPY: Record<Stage, string> = {
   preparing: "Preparing your photo…",
   uploading: "Uploading…",
-  writing: "Writing captions… (about 10 seconds)",
-};
-
-const ROAST_STAGE_COPY: Record<Stage, string> = {
-  ...STAGE_COPY,
   writing: "The critics are judging… (about 10 seconds)",
 };
 
 const UNREADABLE = "Couldn’t read that photo. Try a JPG, PNG or HEIC.";
 const UPLOAD_FAILED = "Upload failed. Check your connection and try again.";
-const CAPTIONS_FAILED = "Something went wrong while writing captions. Please try again.";
+const ROAST_FAILED = "The critics couldn’t judge that one. Please try again.";
 
-// roast: pick a topic and get roasted by critics instead of captioned
-export default function NewPostForm({ userId, roast = false }: { userId: string; roast?: boolean }) {
+export default function NewPostForm({ userId }: { userId: string }) {
   const [topic, setTopic] = useState<Topic | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -99,7 +93,15 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
   }
 
   function onPick(event: ChangeEvent<HTMLInputElement>) {
-    pick(event.target.files?.[0] ?? null);
+    const picked = event.target.files?.[0] ?? null;
+    if (picked && !isImageFile(picked)) {
+      event.target.value = "";
+      pick(null);
+      // After pick, which clears the error
+      setError(UNREADABLE);
+      return;
+    }
+    pick(picked);
   }
 
   function onDrop(event: DragEvent<HTMLLabelElement>) {
@@ -122,10 +124,11 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file || pending) return;
-    if (roast && !topic) {
+    if (!topic) {
       setError("Pick a topic first.");
       return;
     }
+    const chosen = topic;
     const picked = file;
     const context = note;
 
@@ -166,18 +169,18 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
       // deletes the upload itself, so there's nothing to clean up here.
       startTransition(() => setStage("writing"));
       try {
-        const result = roast && topic ? await createImage(path, context, topic) : await createImage(path, context);
-        fail(result?.error ?? CAPTIONS_FAILED);
+        const result = await createImage(path, context, chosen);
+        fail(result?.error ?? ROAST_FAILED);
       } catch (err) {
         // The success redirect arrives as a thrown navigation; let Next handle it
         unstable_rethrow(err);
-        fail(CAPTIONS_FAILED);
+        fail(ROAST_FAILED);
       }
     });
   }
 
   const remaining = CONTEXT_MAX - note.length;
-  const status = error ?? (stage ? (roast ? ROAST_STAGE_COPY : STAGE_COPY)[stage] : null);
+  const status = error ?? (stage ? STAGE_COPY[stage] : null);
 
   const dropzone = (
     <label
@@ -222,45 +225,42 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
 
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-6">
-      {roast && (
-        <fieldset disabled={pending}>
-          <legend className="text-sm font-medium">What are we judging?</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {TOPICS.map((t) => (
-              <label key={t.slug} className="relative">
-                <input
-                  type="radio"
-                  name="topic"
-                  value={t.slug}
-                  checked={topic === t.slug}
-                  onChange={() => {
-                    setError(null);
-                    setTopic(t.slug);
-                  }}
-                  className="peer sr-only"
-                />
-                <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-white/5 px-3 py-1.5 text-sm font-medium text-fg/80 transition-colors peer-checked:border-lime peer-checked:bg-lime peer-checked:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lime motion-reduce:transition-none">
-                  <span aria-hidden="true">{t.emoji}</span>
-                  {t.label}
-                </span>
-              </label>
-            ))}
-          </div>
-          <p className="mt-2 text-sm text-muted">
-            {topic ? `Post ${TOPICS.find((t) => t.slug === topic)?.hint}.` : "Food, art, your room or your fit."}{" "}
-            Critics roast the thing, never the person.
-          </p>
-        </fieldset>
-      )}
+      <fieldset disabled={pending}>
+        <legend className="text-sm font-medium">What are we judging?</legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {TOPICS.map((t) => (
+            <label key={t.slug} className="relative">
+              <input
+                type="radio"
+                name="topic"
+                value={t.slug}
+                required
+                checked={topic === t.slug}
+                onChange={() => {
+                  setError(null);
+                  setTopic(t.slug);
+                }}
+                className="peer sr-only"
+              />
+              <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-white/5 px-3 py-1.5 text-sm font-medium text-fg/80 transition-colors peer-checked:border-lime peer-checked:bg-lime peer-checked:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lime motion-reduce:transition-none">
+                <span aria-hidden="true">{t.emoji}</span>
+                {t.label}
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-muted">
+          {topic ? `Post ${TOPICS.find((t) => t.slug === topic)?.hint}.` : "Food, art, your room or your fit."}{" "}
+          Critics roast the thing, never the person.
+        </p>
+      </fieldset>
       <div>
         <p className="block text-sm font-medium" id="photo-label">
           Photo
         </p>
         <div className="mt-2 rounded-[20px] border border-white/15 bg-[#0d0d13]">{dropzone}</div>
         <p id="photo-hint" className="mt-2 text-sm text-muted">
-          {roast
-            ? "Show the thing itself. Photos that are mainly of a person get turned away."
-            : "Campus, the subway, your dorm, a bodega cat. Skip photos of people who didn’t say yes."}
+          Show the thing itself. Photos that are mainly of a person get turned away.
         </p>
 
         {preview && (
@@ -274,7 +274,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
               onError={onPreviewError}
               className="object-contain"
             />
-            {stage === "writing" && <WritingOverlay roast={roast} />}
+            {stage === "writing" && topic && <WritingOverlay topic={topic} />}
           </div>
         )}
       </div>
@@ -286,13 +286,13 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
         optional
         rows={2}
         maxLength={CONTEXT_MAX}
-        placeholder={roast ? "Ex: My first carbonara, be gentle" : "Ex: First week, already lost in Butler"}
+        placeholder="Ex: My first carbonara, be gentle"
         value={note}
         onChange={(event) => setNote(event.target.value)}
         disabled={pending}
         hint={
           <span className="flex items-baseline justify-between gap-4">
-            <span>{roast ? "Gives the critics context." : "Helps the captions land."} It’s never shown publicly.</span>
+            <span>Gives the critics context. It’s never shown publicly.</span>
             <span
               className={`shrink-0 tabular-nums ${
                 remaining <= 20 ? "text-amber-300" : ""
@@ -308,7 +308,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button type="submit" disabled={pending} className={button("primary")}>
           {pending && <Spinner />}
-          {pending ? "Working…" : roast ? "Roast me" : "Write captions"}
+          {pending ? "Working…" : "Roast me"}
         </button>
         <p
           role="status"

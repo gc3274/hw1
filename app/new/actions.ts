@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { requireCompleteProfile } from "@/lib/dal";
-import { generateCaptions, generateRoasts } from "@/lib/gemini";
-import { countRecentGenerations, getCritics, getFlavors } from "@/lib/images";
+import { generateRoasts } from "@/lib/gemini";
+import { countRecentGenerations, getCritics } from "@/lib/images";
 import {
   DAILY_GENERATION_LIMIT,
   IMAGE_BUCKET,
@@ -19,8 +19,6 @@ type Failure = { ok: false; error: string };
 // keepUpload: the path already belongs to another post, so cleanup must not touch it
 type StepResult = { ok: true; id: string } | (Failure & { keepUpload?: boolean });
 
-const GENERIC_ERROR = "Couldn't write captions for that photo. Please try again.";
-
 const ROAST_ERROR = "The critics couldn't judge that photo. Please try again.";
 
 const ROAST_REASON_COPY = {
@@ -28,13 +26,6 @@ const ROAST_REASON_COPY = {
   busy: "The critics are busy, try again in a minute.",
   not_configured: ROAST_ERROR,
   failed: ROAST_ERROR,
-} as const;
-
-const REASON_COPY = {
-  rejected: "We can't caption that photo. Try a different one.",
-  busy: "Caption writer is busy, try again in a minute.",
-  not_configured: GENERIC_ERROR,
-  failed: GENERIC_ERROR,
 } as const;
 
 // JPEG files always start with FF D8 FF
@@ -60,12 +51,12 @@ async function discard(supabase: Supabase, path: string, imageId: string | null)
 
 // Everything after the upload check. Records the new row's id in `created`
 // so the caller can roll it back even if a later step throws.
-async function captionUpload(
+async function processUpload(
   supabase: Supabase,
   userId: string,
   path: string,
   context: string,
-  topic: Topic | null,
+  topic: Topic,
   created: { imageId: string | null },
 ): Promise<StepResult> {
   // Log the attempt before counting, so parallel requests and failed runs
@@ -102,33 +93,7 @@ async function captionUpload(
   }
 
   const imageData = { data: Buffer.from(bytes).toString("base64"), mimeType: "image/jpeg" as const };
-  if (topic) return roastUpload(supabase, path, context, topic, imageData, created);
-
-  const flavors = await getFlavors();
-  if (flavors.length === 0) return { ok: false, error: GENERIC_ERROR };
-
-  const result = await generateCaptions({ image: imageData, context, flavors });
-  if (!result.ok) return { ok: false, error: REASON_COPY[result.reason] };
-
-  const saved = await saveImage(supabase, path, context, null, created);
-  if (!saved.ok) return saved;
-
-  // One statement, identical keys on every row (missing keys would become NULL)
-  const { error: captionsError } = await supabase.from("captions").insert(
-    result.captions.map((c) => ({
-      image_id: saved.id,
-      humor_flavor_id: c.flavorId,
-      content: c.content,
-      prompt: result.prompt,
-      model: result.model,
-    })),
-  );
-  if (captionsError) {
-    console.error("Caption save failed:", captionsError.message);
-    return { ok: false, error: "Couldn't save your captions. Please try again." };
-  }
-
-  return { ok: true, id: saved.id };
+  return roastUpload(supabase, path, context, topic, imageData, created);
 }
 
 // Column grants only allow image_path, context and topic; id and user_id come from defaults
@@ -136,12 +101,12 @@ async function saveImage(
   supabase: Supabase,
   path: string,
   context: string,
-  topic: Topic | null,
+  topic: Topic,
   created: { imageId: string | null },
 ): Promise<StepResult> {
   const { data: image, error: imageError } = await supabase
     .from("images")
-    .insert(topic ? { image_path: path, context: context || null, topic } : { image_path: path, context: context || null })
+    .insert({ image_path: path, context: context || null, topic })
     .select("id")
     .single<{ id: string }>();
   if (imageError?.code === "23505") {
@@ -192,14 +157,15 @@ async function roastUpload(
 
 // The browser uploads straight to Storage; only the object path comes through here.
 // On success this redirects to the new photo's page and never returns.
-// With a topic, critics roast the photo instead of writing captions.
-export async function createImage(path: string, context: string, topicSlug?: string): Promise<Failure> {
+// The critics on the topic's panel roast the photo.
+export async function createImage(path: string, context: string, topicSlug: string): Promise<Failure> {
   // Same gate as the /new page, so a direct POST can't skip onboarding
   const { user } = await requireCompleteProfile();
   if (!isOwnImagePath(user.id, path)) return { ok: false, error: "Invalid upload." };
   const note = readContext(context);
-  const topic = topicSlug === undefined ? null : parseTopic(topicSlug);
-  if (topicSlug !== undefined && !topic) return { ok: false, error: "Pick a topic." };
+  // Also covers a crafted call that leaves the topic out
+  const topic = parseTopic(topicSlug);
+  if (!topic) return { ok: false, error: "Pick a topic first." };
 
   const supabase = await createClient();
 
@@ -224,10 +190,10 @@ export async function createImage(path: string, context: string, topicSlug?: str
   const created: { imageId: string | null } = { imageId: null };
   let outcome: StepResult;
   try {
-    outcome = await captionUpload(supabase, user.id, path, note, topic, created);
+    outcome = await processUpload(supabase, user.id, path, note, topic, created);
   } catch (err) {
     console.error("Creating post failed:", err instanceof Error ? err.message : err);
-    outcome = { ok: false, error: GENERIC_ERROR };
+    outcome = { ok: false, error: ROAST_ERROR };
   }
 
   if (!outcome.ok) {

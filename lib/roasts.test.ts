@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CAPTION_MAX } from "./captions";
 import {
   TOPICS,
   feedHref,
@@ -59,6 +60,24 @@ describe("parseRoastResponse", () => {
 
   it("returns invalid for non-JSON", () => {
     expect(parseRoastResponse("nope", critics)).toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("drops a roast over the length limit", () => {
+    const result = parse({
+      allowed: true,
+      reviews: [
+        review("chef-scorch", { roast: "x".repeat(CAPTION_MAX + 1) }),
+        review("jaded-new-yorker", { roast: "y".repeat(CAPTION_MAX) }),
+      ],
+    });
+    expect(result.ok && result.roasts.map((r) => [r.criticId, r.content])).toEqual([
+      [5, "y".repeat(CAPTION_MAX)],
+    ]);
+  });
+
+  it("reads JSON wrapped in a code fence", () => {
+    const raw = "```json\n" + JSON.stringify({ allowed: true, reviews: [review("chef-scorch")] }) + "\n```";
+    expect(parseRoastResponse(raw, critics)).toMatchObject({ ok: true, roasts: [{ criticId: 1 }] });
   });
 });
 
