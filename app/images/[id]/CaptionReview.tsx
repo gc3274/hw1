@@ -17,7 +17,7 @@ const SAVE_FAILED = "Couldn’t save your choices. Please try again.";
 // The back link and Discard both leave for the same place
 const BACK_HREF = "/";
 
-// The owner's view of a photo: every caption starts private, switches are
+// The owner's view of a photo: every roast starts private, switches are
 // local until Done saves them all at once.
 export default function CaptionReview({
   imageId,
@@ -107,12 +107,12 @@ export default function CaptionReview({
           <h1 className="font-display text-3xl font-bold tracking-tight">Your roasts</h1>
           {panel}
           <p className="mt-2 text-sm text-muted">
-            Everything starts private. Switch the ones you can handle to Post, then
-            save with the button at the bottom.
+            Everything starts private. Switch the roasts you can handle to Post, then save with the
+            button at the bottom.
           </p>
 
           {groups.length === 0 ? (
-            <p className={`${card} mt-6 border-dashed p-4 text-sm text-muted`}>No captions here yet.</p>
+            <p className={`${card} mt-6 border-dashed p-4 text-sm text-muted`}>No roasts here yet.</p>
           ) : (
             <div className="mt-8 space-y-8">
               {groups.map((group) => (
@@ -188,8 +188,8 @@ export default function CaptionReview({
             Discard your choices?
           </h2>
           <p className="mt-2 text-sm text-muted">
-            You switched {changed} {changed === 1 ? "caption" : "captions"} but haven’t saved. Leaving
-            now keeps everything as it was.
+            You switched {changed} {changed === 1 ? "roast" : "roasts"} but haven’t saved. Leaving now
+            keeps everything as it was.
           </p>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
             <form method="dialog">
@@ -284,7 +284,7 @@ function VisibilitySwitch({
       className="inline-flex rounded-full border border-line bg-ink/60 p-1 disabled:opacity-60"
     >
       <legend id={legendId} className="sr-only">
-        Who can see this caption
+        Who can see this roast
       </legend>
       {OPTIONS.map((option) => (
         <label key={option.label} className="relative">

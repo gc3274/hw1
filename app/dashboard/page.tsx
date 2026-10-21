@@ -44,9 +44,9 @@ export default async function DashboardPage() {
 
         <dl className="mt-8 grid grid-cols-3 gap-3">
           {[
-            { label: "Photos", value: photos.length },
-            { label: "Captions posted", value: photos.reduce((n, p) => n + p.postedRoasts, 0) },
-            { label: "Total score", value: photos.reduce((n, p) => n + p.totalScore, 0) },
+            { label: "Posts", value: photos.length },
+            { label: "Roasts posted", value: photos.reduce((n, p) => n + p.postedRoasts, 0) },
+            { label: "Crowd score", value: photos.reduce((n, p) => n + p.totalScore, 0) },
           ].map((stat) => (
             <div key={stat.label} className={`${card} p-4`}>
               <dt className="text-xs text-muted sm:text-sm">{stat.label}</dt>
@@ -62,11 +62,11 @@ export default async function DashboardPage() {
         <section aria-labelledby="photos-heading" className="mt-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 id="photos-heading" className="text-xl font-semibold">
-              Your photos
+              Your posts
             </h2>
             {photos.length > 0 && (
               <Link href="/new" className={button("primary", "sm")}>
-                New post
+                Get roasted
               </Link>
             )}
           </div>
@@ -76,13 +76,14 @@ export default async function DashboardPage() {
               className={`${card} mt-4 flex flex-col gap-3 border-dashed p-4 sm:flex-row sm:items-center sm:justify-between`}
             >
               <div>
-                <p className="font-semibold">No photos yet</p>
+                <p className="font-semibold">Nothing roasted yet</p>
                 <p className="mt-1 text-sm text-muted">
-                  Upload one and get captions in four flavors. You pick which ones go public.
+                  Post something you made. The critics roast it, and you choose which roasts go
+                  public.
                 </p>
               </div>
               <Link href="/new" className={button("primary", "sm")}>
-                Make your first post
+                Get your first roast
               </Link>
             </div>
           ) : (
@@ -130,7 +131,7 @@ function BioCard({ bio }: { bio: Profile["bio"] }) {
           Add a short bio
         </h2>
         <p className="mt-1 text-sm text-muted">
-          Ex: where you’re from, your dorm, or your go-to bodega order. It will show up right here.
+          Ex: your major, your dorm, or the dish you’re proudest of. It will show up right here.
         </p>
       </div>
       <Link href="/profile#bio" className={button("secondary", "sm")}>
@@ -159,7 +160,7 @@ function PhotoTile({ photo }: { photo: MyImage }) {
           <div className="px-3 py-2 text-sm">
             <p className="font-mono text-xs text-muted">{formatDate(new Date(photo.createdAt))}</p>
             <p className="mt-0.5 font-medium tabular-nums">
-              {photo.postedRoasts} of {photo.totalRoasts} posted · score {photo.totalScore}
+              {photo.postedRoasts} of {photo.totalRoasts} roasts posted · score {photo.totalScore}
             </p>
           </div>
         </div>

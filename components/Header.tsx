@@ -7,7 +7,7 @@ import { getProfile, getUser } from "@/lib/dal";
 import { GUEST_COOKIE } from "@/lib/guest";
 import type { NavItem } from "@/lib/nav";
 import Avatar from "./Avatar";
-import CaptionIcon from "./CaptionIcon";
+import BrandMark from "./BrandMark";
 import HeaderShell from "./HeaderShell";
 import MainNav from "./MainNav";
 import SubmitButton from "./SubmitButton";
@@ -19,12 +19,20 @@ export default function Header() {
   return (
     <HeaderShell>
       <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
+        {/* min-w-0 lets the long name wrap onto two lines on the narrowest phones */}
         <Link
           href="/"
-          className={`mr-auto inline-flex items-center gap-2 rounded-md font-display text-lg font-bold tracking-tight ${focusRing}`}
+          className={`mr-auto inline-flex min-w-0 items-center gap-2 rounded-md font-display text-lg font-bold tracking-tight ${focusRing}`}
         >
-          <CaptionIcon className="size-6 text-lime" />
-          <ShinyText text="Caption City" color="#f4f4f6" shineColor="#c4ff3d" speed={2.5} delay={4} />
+          <BrandMark className="size-6 shrink-0 text-lime" />
+          <ShinyText
+            text="Deconstructive Criticism"
+            color="#f4f4f6"
+            shineColor="#c4ff3d"
+            speed={2.5}
+            delay={4}
+            className="leading-tight"
+          />
         </Link>
         <Suspense fallback={<AccountNavSkeleton />}>
           <AccountNav />

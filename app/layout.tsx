@@ -21,11 +21,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Caption City",
-    template: "%s · Caption City",
+    default: "Deconstructive Criticism",
+    template: "%s · Deconstructive Criticism",
   },
   description:
-    "Caption your campus and NYC photos with AI, post the best ones, and vote on everyone else's.",
+    "Post what you made: a meal, a drawing, your room or your fit. AI critics roast it, score it out of 10 and leave one real tip.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

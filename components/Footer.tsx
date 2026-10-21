@@ -8,14 +8,11 @@ export default function Footer() {
     <footer className="border-t border-line text-sm text-muted">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-4 sm:px-8">
         <nav aria-label="Footer" className="mr-auto flex gap-4">
-          <Link href="/stats" className={linkClass}>
-            Football stats
-          </Link>
           <Link href="/privacy" className={linkClass}>
             Privacy
           </Link>
         </nav>
-        <p>© Caption City</p>
+        <p>© Deconstructive Criticism</p>
       </div>
     </footer>
   );

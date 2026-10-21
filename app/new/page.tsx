@@ -32,7 +32,7 @@ export default async function NewPostPage() {
         </Link>
         <h1 className="font-display text-3xl font-bold tracking-tight">Get roasted</h1>
         <p className="mt-1 text-sm text-muted">
-          Post something you made. A panel of critics tears it apart, scores it out of 10, and leaves
+          Post something you made. A panel of AI critics roasts it, scores it out of 10 and leaves
           you one real tip. Nothing is public until you post it.
         </p>
 
@@ -42,12 +42,12 @@ export default async function NewPostPage() {
               That’s all for today
             </h2>
             <p className="mt-1 text-sm text-muted">
-              You’ve used all {DAILY_GENERATION_LIMIT} uploads for the last 24 hours. Come back
-              tomorrow for more. In the meantime, go vote on everyone else’s roasts.
+              You’ve used all {DAILY_GENERATION_LIMIT} posts for the last 24 hours. The critics are
+              off duty until tomorrow, so go vote on everyone else’s in the meantime.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link href="/" className={button("primary", "sm")}>
-                See roasts
+                See the roasts
               </Link>
               <Link href="/dashboard" className={button("secondary", "sm")}>
                 Your posts
@@ -62,7 +62,7 @@ export default async function NewPostPage() {
               </h2>
               {remaining !== null && (
                 <p className="text-sm text-muted tabular-nums">
-                  {remaining} of {DAILY_GENERATION_LIMIT} left today
+                  {remaining} of {DAILY_GENERATION_LIMIT} posts left today
                 </p>
               )}
             </div>

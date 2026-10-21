@@ -21,14 +21,14 @@ export default function Error({
       <div className={`${card} p-6 text-center sm:p-8`}>
         <ErrorHeading text="Something broke" />
         <p className="mt-4 text-sm text-muted">
-          Not your fault. Probably the Wi-Fi in Butler. Give it another try.
+          Not your fault, and not the critics’ either. Give it another try.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button type="button" onClick={() => retry()} className={button("primary")}>
             Try again
           </button>
           <Link href="/" className={button("secondary")}>
-            Back to the feed
+            Back to roasts
           </Link>
         </div>
       </div>

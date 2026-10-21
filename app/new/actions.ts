@@ -22,8 +22,9 @@ type StepResult = { ok: true; id: string } | (Failure & { keepUpload?: boolean }
 const ROAST_ERROR = "The critics couldn't judge that photo. Please try again.";
 
 const ROAST_REASON_COPY = {
-  rejected: "Critics only judge things you made: the dish, the drawing, the room or the fit. Try another photo.",
-  busy: "The critics are busy, try again in a minute.",
+  rejected:
+    "The critics only judge things you made: the dish, the drawing, the room or the fit. Try another photo.",
+  busy: "The critics are swamped. Try again in a minute.",
   not_configured: ROAST_ERROR,
   failed: ROAST_ERROR,
 } as const;
@@ -73,7 +74,7 @@ async function processUpload(
   if (recent > DAILY_GENERATION_LIMIT) {
     return {
       ok: false,
-      error: `You've used today's ${DAILY_GENERATION_LIMIT} photo uploads. Come back tomorrow!`,
+      error: `You've used all ${DAILY_GENERATION_LIMIT} of today's posts. The critics clock back in tomorrow.`,
     };
   }
 

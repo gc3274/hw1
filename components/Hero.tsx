@@ -9,9 +9,9 @@ import MotionSwap from "@/components/fx/MotionSwap";
 import HeroPreview, { type PreviewRoast } from "./HeroPreview";
 import { button } from "./ui";
 
-const HEADLINE = "Make your camera roll";
-const SUBJECTS = ["bodega cat", "subway mystery", "dorm view", "3am Butler"];
-const STEPS = ["Snap a photo", "AI writes the jokes", "Everyone votes"];
+const HEADLINE = "Made something?";
+const SUBJECTS = ["midnight ramen", "figure drawing", "John Jay single", "thrifted fit", "desk setup"];
+const STEPS = ["Post what you made", "Critics roast and score it", "Vote on what lands"];
 const subjectChip = "inline-flex overflow-hidden rounded-lg bg-lime px-2 text-ink";
 
 // Full-height title screen on /welcome for first-time signed-out visitors
@@ -33,28 +33,28 @@ export default function Hero({ preview }: { preview: PreviewRoast[] }) {
             borderColor="rgb(255 255 255 / 0.12)"
             innerClassName="px-3.5 py-1.5 text-xs font-medium tracking-wide"
           >
-            AI captions · Columbia &amp; NYC
+            AI critics · Columbia &amp; Barnard
           </StarBorder>
 
           <h1
             id="hero-heading"
             className="mt-6 font-display text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-7xl lg:text-8xl"
           >
-            <span className="sr-only">Make your camera roll funny.</span>
+            <span className="sr-only">Made something? Get it roasted.</span>
             <span aria-hidden="true">
               <MotionSwap still={<span className="block">{HEADLINE}</span>}>
                 <SplitText tag="span" text={HEADLINE} textAlign="left" className="block" />
               </MotionSwap>
               <span className="block animate-rise [animation-delay:900ms] motion-reduce:animate-none">
                 <GradientText colors={["#c4ff3d", "#ff3ea5", "#a78bfa", "#c4ff3d"]} animationSpeed={6}>
-                  funny.
+                  Get it roasted.
                 </GradientText>
               </span>
             </span>
           </h1>
 
           <p className="mt-6 max-w-xl text-lg text-fg/80 sm:text-xl">
-            Snap the{" "}
+            Post your{" "}
             <MotionSwap still={<span className={subjectChip}>{SUBJECTS[0]}</span>}>
               <RotatingText
                 texts={SUBJECTS}
@@ -69,7 +69,8 @@ export default function Hero({ preview }: { preview: PreviewRoast[] }) {
                 rotationInterval={2200}
               />
             </MotionSwap>
-            . AI writes the jokes. Everyone votes.
+            . A panel of AI critics roasts it in character, scores it out of 10 and leaves you one
+            real tip.
           </p>
 
           {/* role="list": Safari drops list semantics once list-style is none */}
@@ -96,10 +97,11 @@ export default function Hero({ preview }: { preview: PreviewRoast[] }) {
             {/* A plain form, so it works before (or without) JavaScript */}
             <form action={continueAsGuest}>
               <button type="submit" className={button("secondary")}>
-                Look around as a guest <span aria-hidden="true">→</span>
+                Browse as a guest <span aria-hidden="true">→</span>
               </button>
             </form>
           </div>
+          <p className="mt-4 text-sm text-muted">Critics roast the thing, never the person.</p>
         </div>
 
         {preview.length > 0 && <HeroPreview roasts={preview} />}

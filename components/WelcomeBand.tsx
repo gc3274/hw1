@@ -12,8 +12,8 @@ export default function WelcomeBand({ profile }: { profile: Profile | null }) {
   if (!profile) {
     return (
       <Band
-        title="You’re looking around as a guest"
-        body="Sign in to vote on the funniest captions and post your own photos."
+        title="You’re browsing as a guest"
+        body="Sign in to vote on the roasts and put your own work in front of the critics."
       >
         <div className="flex flex-wrap items-center gap-4">
           <div className="w-64">
@@ -32,7 +32,10 @@ export default function WelcomeBand({ profile }: { profile: Profile | null }) {
 
   if (!profile.isComplete) {
     return (
-      <Band title="You’re almost in" body="Add your name to finish setting up, then post your first photo.">
+      <Band
+        title="You’re almost in"
+        body="Add your name to finish setting up, then hand the critics your first post."
+      >
         <Link href="/onboarding" className={button("primary")}>
           Finish setup
         </Link>
@@ -43,10 +46,10 @@ export default function WelcomeBand({ profile }: { profile: Profile | null }) {
   return (
     <Band
       title={`Welcome back, ${profile.firstName || profile.displayName}`}
-      body="Got a photo? Turn it into a post."
+      body="Made something lately? The critics are waiting."
     >
       <Link href="/new" className={button("primary")}>
-        New post <span aria-hidden="true">→</span>
+        Get roasted <span aria-hidden="true">→</span>
       </Link>
     </Band>
   );

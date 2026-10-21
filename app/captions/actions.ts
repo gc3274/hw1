@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 type Result = { ok: true } | { ok: false; error: string };
 
 const VOTE_ERROR = "Couldn't save your vote. Please try again.";
-const NOT_POSTED = "You can only vote on posted captions.";
+const NOT_POSTED = "You can only vote on posted roasts.";
 
 // 0 clears the vote. RLS keeps every vote row private to its owner and only
 // lets votes land on posted captions; the counters update through a trigger.
@@ -74,7 +74,7 @@ export async function castVote(captionId: string, value: VoteValue): Promise<Res
     } else if (error?.code === "42501") {
       result = { ok: false, error: NOT_POSTED };
     } else if (error?.code === "23503") {
-      result = { ok: false, error: "Caption not found." };
+      result = { ok: false, error: "That roast no longer exists." };
     } else if (error) {
       console.error("Vote insert failed:", error.message);
       result = { ok: false, error: VOTE_ERROR };
@@ -99,7 +99,7 @@ export async function saveCaptionChoices(
   toHide: string[],
 ): Promise<{ ok: false; error: string }> {
   const user = await getUser();
-  if (!user) return { ok: false, error: "Sign in to post captions." };
+  if (!user) return { ok: false, error: "Sign in to post your roasts." };
 
   const input = validateCaptionChoices(imageId, toPost, toHide);
   if (!input.ok) return input;

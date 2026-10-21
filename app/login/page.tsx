@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import BlurText from "@/components/bits/BlurText";
-import CaptionIcon from "@/components/CaptionIcon";
+import BrandMark from "@/components/BrandMark";
 import AuroraBackdrop from "@/components/fx/AuroraBackdrop";
 import PageTransition from "@/components/PageTransition";
 import { card, errorBox, focusRing } from "@/components/ui";
@@ -26,16 +26,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <AuroraBackdrop />
         <div className={`${card} relative w-full max-w-sm bg-ink/60! p-6 text-center backdrop-blur-xl sm:p-8`}>
           <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-lime/15 text-lime">
-            <CaptionIcon className="size-7" />
+            <BrandMark className="size-7" />
           </span>
           <BlurText
             as="h1"
-            text="Sign in to Caption City"
+            text="Sign in to Deconstructive Criticism"
             delay={80}
             className="mt-4 justify-center font-display text-2xl font-bold tracking-tight"
           />
           <p className="mt-2 text-sm text-muted">
-            Vote on the funniest captions and turn your own photos into posts.
+            Post what you made, take the heat, and vote on the roasts that land.
           </p>
 
           {failed && (
@@ -57,7 +57,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             className={`mt-6 inline-block rounded-sm text-sm font-medium text-muted underline-offset-4 hover:text-foreground hover:underline ${focusRing}`}
           >
             <span aria-hidden="true">← </span>
-            Back to the feed
+            Back to roasts
           </Link>
         </div>
       </main>

@@ -72,7 +72,7 @@ export default function VoteButtons({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <div role="group" aria-label="Vote on this caption" className="flex items-center gap-0.5">
+      <div role="group" aria-label="Vote on this roast" className="flex items-center gap-0.5">
         <button
           type="button"
           onClick={() => onVote(1)}
@@ -126,7 +126,7 @@ export default function VoteButtons({
               Log in to vote
             </h2>
             <p id={bodyId} className="mt-2 text-sm text-muted">
-              Sign in with your Google account to vote on captions.
+              Sign in with Google to vote on which roasts land.
             </p>
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               {/* method="dialog" closes the dialog natively, no script needed */}

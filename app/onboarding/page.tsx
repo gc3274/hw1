@@ -34,7 +34,7 @@ export default async function OnboardingPage() {
             />
             <div className="min-w-0">
               <h1 className="font-display text-2xl font-bold tracking-tight">
-                Welcome to Caption City
+                Welcome to Deconstructive Criticism
               </h1>
               {email && (
                 <p className="truncate text-sm text-muted">

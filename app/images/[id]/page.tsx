@@ -79,7 +79,7 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
         <Image src={image.url} alt="" fill sizes={PHOTO_SIZES} loading="eager" className="scale-110 object-cover opacity-40 blur-2xl" />
         <Image
           src={image.url}
-          alt={image.isOwner ? "Your uploaded photo" : "Uploaded photo"}
+          alt={image.isOwner ? "Your photo" : "The photo being roasted"}
           fill
           sizes={PHOTO_SIZES}
           loading="eager"
