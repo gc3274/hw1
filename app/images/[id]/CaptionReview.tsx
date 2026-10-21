@@ -124,14 +124,14 @@ export default function CaptionReview({
                     {group.name || "Critic"}
                   </h2>
                   <ul className="mt-3 space-y-3">
-                    {group.roasts.map((caption) => (
+                    {group.roasts.map((roast) => (
                       <CaptionRow
-                        key={caption.id}
-                        caption={caption}
-                        isPublic={isStagedPublic(caption)}
+                        key={roast.id}
+                        caption={roast}
+                        isPublic={isStagedPublic(roast)}
                         disabled={pending}
-                        onChange={(next) => setChoice(caption.id, next)}
-                        myVote={votes[caption.id] ?? 0}
+                        onChange={(next) => setChoice(roast.id, next)}
+                        myVote={votes[roast.id] ?? 0}
                         signedIn={signedIn}
                       />
                     ))}

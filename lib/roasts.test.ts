@@ -110,8 +110,8 @@ describe("feedHref", () => {
   it("never points at the old /roast feed", () => {
     for (const sort of ["top", "new"] as const) {
       for (const topic of [null, ...TOPICS.map((t) => t.slug)]) {
-        expect(feedHref(sort, topic).startsWith("/roast")).toBe(false);
-        expect(feedHref(sort, topic, 48).startsWith("/roast")).toBe(false);
+        expect(feedHref(sort, topic)).not.toMatch(/^\/roast/);
+        expect(feedHref(sort, topic, 48)).not.toMatch(/^\/roast/);
       }
     }
   });
