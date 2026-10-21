@@ -5,8 +5,6 @@ import RotatingText from "@/components/bits/RotatingText";
 import SplitText from "@/components/bits/SplitText";
 import StarBorder from "@/components/bits/StarBorder";
 import AuroraBackdrop from "@/components/fx/AuroraBackdrop";
-import CursorTrail from "@/components/fx/CursorTrail";
-import MagnetWrap from "@/components/fx/MagnetWrap";
 import MotionSwap from "@/components/fx/MotionSwap";
 import HeroPreview, { type PreviewCaption } from "./HeroPreview";
 import { button } from "./ui";
@@ -24,7 +22,6 @@ export default function Hero({ preview }: { preview: PreviewCaption[] }) {
       className="relative isolate flex min-h-[calc(100svh-4rem)] items-center overflow-hidden"
     >
       <AuroraBackdrop />
-      <CursorTrail />
       <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-14 px-4 py-16 sm:px-8 lg:grid-cols-[1.25fr_1fr]">
         <div className="min-w-0">
           <StarBorder
@@ -95,11 +92,7 @@ export default function Hero({ preview }: { preview: PreviewCaption[] }) {
           </ol>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <MagnetWrap>
-              <div className="w-64">
-                <GoogleSignInButton />
-              </div>
-            </MagnetWrap>
+            <div className="w-64"><GoogleSignInButton /></div>
             {/* A plain form, so it works before (or without) JavaScript */}
             <form action={continueAsGuest}>
               <button type="submit" className={button("secondary")}>

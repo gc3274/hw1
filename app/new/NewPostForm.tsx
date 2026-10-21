@@ -13,9 +13,7 @@ import {
   type FormEvent,
 } from "react";
 import { createImage } from "@/app/new/actions";
-import BorderGlow from "@/components/bits/BorderGlow";
 import { TextAreaField } from "@/components/Field";
-import { useCursorEffects } from "@/components/fx/hooks";
 import Spinner from "@/components/Spinner";
 import { button, card } from "@/components/ui";
 import { CONTEXT_MAX, IMAGE_BUCKET } from "@/lib/captions";
@@ -50,7 +48,6 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const cursorFx = useCursorEffects();
   const [pending, startTransition] = useTransition();
   // Optimistic so each stage shows right away and clears itself when the submit ends
   const [stage, setStage] = useOptimistic<Stage | null>(null);
@@ -191,7 +188,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
       data-dragging={dragging}
-      // Inset focus ring, since BorderGlow clips anything drawn outside it
+      // Inset focus ring so it sits inside the rounded frame
       className="flex min-h-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-line px-6 py-10 text-center transition-colors has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-lime data-[dragging=true]:border-lime data-[dragging=true]:bg-lime/5 motion-reduce:transition-none"
     >
       <input
@@ -259,20 +256,7 @@ export default function NewPostForm({ userId, roast = false }: { userId: string;
         <p className="block text-sm font-medium" id="photo-label">
           Photo
         </p>
-        {cursorFx ? (
-          <BorderGlow
-            className="mt-2"
-            backgroundColor="#0d0d13"
-            borderRadius={20}
-            glowRadius={24}
-            glowColor="78 100 62"
-            colors={["#c4ff3d", "#ff3ea5", "#7c3aed"]}
-          >
-            {dropzone}
-          </BorderGlow>
-        ) : (
-          <div className="mt-2 rounded-[20px] border border-white/15 bg-[#0d0d13]">{dropzone}</div>
-        )}
+        <div className="mt-2 rounded-[20px] border border-white/15 bg-[#0d0d13]">{dropzone}</div>
         <p id="photo-hint" className="mt-2 text-sm text-muted">
           {roast
             ? "Show the thing itself. Photos that are mainly of a person get turned away."
