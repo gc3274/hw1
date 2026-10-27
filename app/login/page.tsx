@@ -19,6 +19,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   // Only used as a flag; the raw value is never shown
   const { error } = await searchParams;
   const failed = Boolean(error);
+  const notAllowed = error === "not_allowed";
 
   return (
     <PageTransition>
@@ -40,7 +41,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
           {failed && (
             <div role="alert" className={`${errorBox} mt-6 text-left`}>
-              That sign-in didn’t go through. Please try again.
+              {notAllowed
+                ? "This email can’t create an account yet. Sign-ups are limited to approved addresses, so try your school email. You can still look around as a guest."
+                : "That sign-in didn’t go through. Please try again."}
             </div>
           )}
 

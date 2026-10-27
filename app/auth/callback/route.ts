@@ -2,12 +2,16 @@ import type { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isProfileComplete } from "@/lib/profile";
+import { isSignupBlocked } from "@/lib/signup";
 
 // redirect() here sends a relative Location and keeps the session cookies set
 // through cookies(), so preview deployments stay on their own host.
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const providerError = params.get("error_description") ?? params.get("error");
+  const description = params.get("error_description");
+  // The sign-up hook turned a new account away; matched before any trimming
+  if (isSignupBlocked(description)) redirect("/login?error=not_allowed");
+  const providerError = description ?? params.get("error");
   const code = params.get("code");
 
   if (providerError) redirect(`/login?error=${encodeURIComponent(providerError.slice(0, 200))}`);
