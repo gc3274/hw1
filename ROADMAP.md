@@ -25,6 +25,8 @@ Each feature goes through a short design pass before it's built: what it does, o
 | Night-city redesign, without the cursor gimmicks | React Bits text and motion effects stay; the cursor trail, click sparks, magnet button and border glow are gone |
 | The pivot from Caption City | New name, crop-mark flame icon and roast copy everywhere; the old `/roast` URLs redirect |
 | Admin area | A separate app ([gc3274/hw6](https://github.com/gc3274/hw6)) behind Google sign-in plus `profiles.is_superadmin`: creative stats, users, roasts (create, read, update, delete), votes and ratings |
+| Prompt chains and logs | Roasts run on prompt chains stored in the database (One pass, and Look, then roast), picked by an editable mix; every run and model call is logged; terms and example reviews feed the prompt; the admin area edits models, providers, terms, examples, the mix and photos, and reads the logs |
+| Sign-up allowlist | New accounts need a listed email domain (Columbia and Barnard to start) or a whitelisted address, checked by a Supabase hook; existing accounts are never locked out |
 
 The football stats page from HW1 still works at `/stats`, but nothing links to it.
 

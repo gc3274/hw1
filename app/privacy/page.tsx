@@ -27,6 +27,10 @@ export default function PrivacyPage() {
             <li>
               The roasts, scores and tips the critics write for your photos, and the votes you cast.
             </li>
+            <li>
+              A log of each roast run: when it ran, which model answered, how long it took, and the
+              prompt sent, which includes your note.
+            </li>
           </ul>
           <p>
             This is only used to run the app. It is never sold or shared with anyone else, except
@@ -60,9 +64,10 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Who can see what</h2>
           <p>
-            The site’s admins can see accounts, posts, notes, roasts and votes so they can keep the
-            app running and take things down.
+            The site’s admins can see accounts, posts, notes, roasts, votes and the roast logs so
+            they can keep the app running and take things down.
           </p>
+          <p>New accounts are limited to approved email addresses.</p>
         </section>
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Deleting your data</h2>

@@ -8,15 +8,15 @@ Stack: Next.js 16.3.5 (App Router, `proxy.ts`), React 19, Tailwind 4, Supabase (
 
 ## How it works
 
-1. **Sign in** with Google and add your name on `/onboarding`.
+1. **Sign in** with Google and add your name on `/onboarding`. New accounts need an approved email (see [Sign-ups](#sign-ups)).
 2. **Post** on `/new`: pick a topic and a photo, and add an optional note for the critics. The photo is resized to a JPEG in the browser (iPhone HEIC photos included) and uploaded to the `images` bucket.
-3. **The panel judges it.** One Gemini call writes a roast for every critic on the topic's panel: the topic's expert plus the three general critics ("Anything" gets only the three). Each roast is at most 200 characters, with a score out of 10 and one real tip.
+3. **The panel judges it.** A prompt chain from the database writes a roast for every critic on the topic's panel: the topic's expert plus the three general critics ("Anything" gets only the three). Each roast is at most 200 characters, with a score out of 10 and one real tip. See [Prompt chains and logs](#prompt-chains-and-logs).
 4. **Private review.** Everything starts private. On `/images/[id]` the owner switches the roasts they can handle to Post and saves.
 5. **Vote.** Posted roasts show up in the feed on `/`, sorted by Top this week or New and filtered by topic. Signed-in users vote each roast up or down; guests can browse.
 
 House rules:
 - Critics roast the thing, never the person. Photos that are mainly of a person are turned away.
-- 5 posts per person per 24 hours (the cap counts uploads, not roasts).
+- 5 posts per person per 24 hours (the cap counts roast runs, failed ones included, not roasts).
 - Nothing is public until its owner posts it, and the uploader's note is never shown.
 
 ### Topics and critics
@@ -64,9 +64,11 @@ Put these in `.env.local` (never commit it), and in the Vercel project settings:
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which wins if both are set |
 | `GEMINI_API_KEY` | Server only |
-| `GEMINI_MODEL` | Optional. Defaults to `gemini-3.5-flash`; an override must accept the MINIMAL thinking level. `gemini-flash-lite-latest` is tried once when the main model is busy |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server only; never prefix it with `NEXT_PUBLIC_`. On Vercel, Production and Preview, marked Sensitive |
 
-This app never uses the service-role key. Only the admin area has it.
+The service-role key is used for one thing: the roast pipeline's settings and logs (`lib/generation.ts`, through `lib/supabase/service.ts`). Those tables have no grants for signed-in users, so the prompts stay private and nobody can write log rows of their own. Every other read and write stays on the signed-in user's token and its row level security. `lib/architecture.test.ts` fails if any other file reads the key or imports the service client. Without the key, `/new` still renders but every upload stops at "Couldn't start your post".
+
+The model is no longer set by an environment variable: it comes from the prompt chain in the database. Remove any old `GEMINI_MODEL` from `.env.local` and Vercel.
 
 ## Supabase setup
 
@@ -76,6 +78,7 @@ Run the migrations in `supabase/migrations/` in this order. Paste each whole fil
 2. `20261007120000_captions_and_votes.sql`: `humor_flavors`, `images`, `captions`, `caption_votes`, `generation_attempts`, the `images` bucket, and row level security on every table
 3. `20261015120000_roast_mode.sql`: `critics`, `images.topic`, and `captions.critic_id`, `rating` and `tip`
 4. `20261021120000_superadmin.sql`: `profiles.is_superadmin`, column-level insert/update grants on `profiles`, and a guard trigger on the flag
+5. `20261028120000_prompt_chains_and_observability.sql`: LLM providers and models, prompt chains with their steps and mix, terms, example reviews, `generation_requests`, `llm_responses`, the sign-up lists and the hook that checks them. Its seeds only run the first time. Run it before deploying the code that uses it, then once more after: the copy of `generation_attempts` picks up the runs the old deploy logged in between
 
 Each file can be re-run on its own, but re-running an older file resets grants that a later file added. **After re-running any file, re-run every later file, in order.** The two cases that bite:
 
@@ -85,6 +88,16 @@ Each file can be re-run on its own, but re-running an older file resets grants t
 Auth:
 - Enable the Google provider under Authentication → Providers.
 - Under Authentication → URL Configuration → Redirect URLs, allow `http://localhost:3000/**` and the Vercel domains. The app sends Google sign-ins back to `<origin>/auth/callback`.
+- Under Authentication → Hooks, add a **Before User Created** hook of type Postgres with the function `public.hook_before_user_created` (migration 5). See [Sign-ups](#sign-ups).
+
+### Sign-ups
+
+New accounts need an email whose domain is in `allowed_signup_domains` (subdomains count, so `columbia.edu` covers `cs.columbia.edu`) or that is in `whitelisted_email_addresses`. The migration seeds `columbia.edu` and `barnard.edu`; the admin area edits both lists. With both lists empty, nobody can sign up.
+
+- The check is the Before User Created hook, so it runs only when an account is created. Existing accounts, the superadmin included, are never checked, and removing a domain never locks anyone out.
+- Accounts created in the dashboard (Authentication → Users → Add user) skip the hook.
+- A blocked sign-up lands on `/login` with "This email can't create an account yet". `lib/signup.ts` matches the hook's message exactly, so change both together.
+- Until the hook is switched on in the dashboard, anyone can sign up.
 
 ### Superadmin flag
 
@@ -241,9 +254,24 @@ notify pgrst, 'reload schema';
 commit;
 ```
 
+## Prompt chains and logs
+
+Every roast run picks a prompt chain by the weights in `prompt_chain_mix` and runs its steps in order (`lib/chains.ts`). Two chains are seeded:
+
+- **One pass** (100%): one call, photo in, every critic's review out. It renders exactly the prompt the app used before chains existed.
+- **Look, then roast** (0%): the first call writes plain notes on the photo, and the second gets the photo and the notes and writes the reviews.
+
+Each step names a model from `llm_models`. Its prompts are templates with `{{topic}}`, `{{critics}}`, `{{note}}`, `{{previous}}` (the step before's answer), `{{terms}}`, `{{examples}}`, `{{roast_max}}`, `{{tip_max}}` and `{{rating_max}}`. Terms and example reviews for the photo's topic (top 30 and top 5 by priority) go into the prompt when there are any.
+
+- A step whose model is busy, missing, refuses the request, or belongs to a provider other than `google` is tried once more on `gemini-flash-lite-latest`.
+- The whole run gets 48 seconds of model time, shared between the steps still to run, which keeps it inside the route's 60-second limit.
+- If the database has no usable chain, the run uses the built-in one-pass chain and its log says `config_fallback`.
+
+Every run writes a `generation_requests` row before the model is called (the daily cap counts these) and one `llm_responses` row per model call, with the prompts sent, the raw answer, the model that answered and the time it took. The admin area reads both.
+
 ## Admin area
 
-The admin area is a separate Next.js app: [gc3274/hw6](https://github.com/gc3274/hw6). It runs on port 3001 against the same Supabase project and Google login. It has creative stats, users (read), roasts (create, read, update, delete) and votes and ratings (read). Every admin page and server action needs a Google sign-in plus `profiles.is_superadmin = true`; only its sign-in page and OAuth callback are open, and a signed-in non-admin gets a "not authorized" page. Its service-role key is server-only and reachable only through that check.
+The admin area is a separate Next.js app: [gc3274/hw6](https://github.com/gc3274/hw6). It runs on port 3001 against the same Supabase project and Google login. It has creative stats, users and photos, roasts, votes and ratings, the prompt chains and their mix, terms, example reviews, LLM models and providers, the request and response logs, and the sign-up lists. Every admin page and server action needs a Google sign-in plus `profiles.is_superadmin = true`; only its sign-in page and OAuth callback are open, and a signed-in non-admin gets a "not authorized" page. Its service-role key is server-only and reachable only through that check.
 
 **Won't the first admin be locked out?** It would be, if the admin area were the only way to set the flag, because the admin area itself requires the flag. So the first superadmin is set out-of-band, with the bootstrap SQL above in the Supabase SQL editor. The editor runs as the database owner (`postgres`), so it bypasses row level security, the column grants and the guard trigger. Users can't promote themselves: the signed-in role has no insert or update grant on `is_superadmin`, and the trigger refuses everyone else, including the admin area's own service key, so a leaked key or a bug in the admin area can't mint admins. If every admin is ever lost, the same SQL editor path restores access. The database owner, not the app, is the root of trust.
 
