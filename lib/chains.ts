@@ -255,8 +255,8 @@ export function pickChain(mix: MixEntry[], rand: number): number | null {
 }
 
 // Today's single-call panel prompt. The one-pass chain in the migration seeds
-// these exact templates (lib/seed-prompts.test.ts checks), and the generator
-// falls back to this chain when the database has no usable one.
+// these exact templates (the main app's lib/seed-prompts.test.ts checks), and
+// the generator falls back to this chain when the database has no usable one.
 export const ONE_PASS_SYSTEM = [
   "You are the judging panel of Deconstructive Criticism, a roast app for Columbia and Barnard students. People post a photo of something they made or did, like a meal they cooked, a drawing, their dorm room or their outfit, and the critics below roast it in character.",
   "",
@@ -309,7 +309,7 @@ export const DEFAULT_CHAIN: Chain = {
   ],
 };
 
-// What lib/data/generation.ts selects for one chain, nested by PostgREST
+// What the generation data layer selects for one chain, nested by PostgREST
 export const CHAIN_SELECT =
   "id, slug, prompt_chain_steps(id, step_order, input_type, output_type, temperature, system_prompt, user_prompt, llm_models(id, provider_model_id, is_temperature_supported, thinking_level, llm_providers(slug)))";
 
