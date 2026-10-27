@@ -263,7 +263,7 @@ Every roast run picks a prompt chain by the weights in `prompt_chain_mix` and ru
 
 Each step names a model from `llm_models`. Its prompts are templates with `{{topic}}`, `{{critics}}`, `{{note}}`, `{{previous}}` (the step before's answer), `{{terms}}`, `{{examples}}`, `{{roast_max}}`, `{{tip_max}}` and `{{rating_max}}`. Terms and example reviews for the photo's topic (top 30 and top 5 by priority) go into the prompt when there are any.
 
-- A step whose model is busy, missing, refuses the request, or belongs to a provider other than `google` is tried once more on `gemini-flash-lite-latest`.
+- A step whose model is busy, can't be found, rejects the request as invalid (HTTP 400), or belongs to a provider other than `google` is tried once more on `gemini-flash-lite-latest`. A safety refusal or an unusable answer is not retried.
 - The whole run gets 48 seconds of model time, shared between the steps still to run, which keeps it inside the route's 60-second limit.
 - If the database has no usable chain, the run uses the built-in one-pass chain and its log says `config_fallback`.
 

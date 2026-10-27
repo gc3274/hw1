@@ -33,7 +33,7 @@
 --
 -- Every new table is service-role only: no grants for anon or authenticated
 -- and no policies. The main app reaches them through its server-only service
--- key (lib/data/generation.ts), the admin area through its own.
+-- key (lib/generation.ts), the admin area through its own.
 
 begin;
 
@@ -499,10 +499,13 @@ $seed$;
 -- 10. Earlier runs ----------------------------------------------------------
 
 -- Same ids and times, so the daily limit keeps counting them and a re-run
--- only copies attempts logged since the last run.
-insert into public.generation_requests (id, user_id, source, image_path, status, created_at)
-select a.id, a.user_id, 'app', a.image_path, 'legacy', a.created_at
+-- only copies attempts logged since the last run. A run whose photo was saved
+-- keeps its link to the post; failed runs never saved one.
+insert into public.generation_requests
+  (id, user_id, source, image_path, image_id, topic, status, created_at)
+select a.id, a.user_id, 'app', a.image_path, i.id, i.topic, 'legacy', a.created_at
   from public.generation_attempts a
+  left join public.images i on i.image_path = a.image_path
 on conflict (id) do nothing;
 
 comment on table public.generation_attempts is
