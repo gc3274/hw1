@@ -4,20 +4,20 @@ import PageTransition from "@/components/PageTransition";
 import { button, card, focusRing } from "@/components/ui";
 import { DAILY_GENERATION_LIMIT } from "@/lib/captions";
 import { requireCompleteProfile } from "@/lib/dal";
-import { countRecentGenerations } from "@/lib/images";
+import { countRecentRequests } from "@/lib/generation";
 import NewPostForm from "./NewPostForm";
 
 export const metadata: Metadata = {
   title: "Get roasted",
 };
 
-// The critics can take a while (two Gemini attempts of up to 25s). Set on the page, this also
-// covers its server actions.
+// The critics can take a while (up to RUN_BUDGET_MS of model calls, see lib/chains.ts). Set on
+// the page, this also covers its server actions.
 export const maxDuration = 60;
 
 export default async function NewPostPage() {
   const { user } = await requireCompleteProfile();
-  const used = await countRecentGenerations(user.id);
+  const used = await countRecentRequests(user.id);
   // Null when the count failed; the form still shows and the action re-checks the limit
   const remaining = used === null ? null : Math.max(0, DAILY_GENERATION_LIMIT - used);
 

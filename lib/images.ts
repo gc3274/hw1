@@ -306,22 +306,3 @@ export async function getMyVotes(captionIds: string[]): Promise<Record<string, V
   }
   return votes;
 }
-
-// Roast runs the user started in the last 24 hours, failed ones included.
-// Null when the count fails, so callers can refuse to spend quota they can't
-// account for.
-export async function countRecentGenerations(userId: string): Promise<number | null> {
-  const supabase = await createClient();
-  const since = new Date(Date.now() - DAY_MS).toISOString();
-  const { count, error } = await supabase
-    .from("generation_attempts")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("created_at", since);
-
-  if (error) {
-    console.error("Counting recent generations failed:", error.message);
-    return null;
-  }
-  return count ?? 0;
-}

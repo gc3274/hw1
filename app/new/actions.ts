@@ -2,8 +2,17 @@
 
 import { redirect } from "next/navigation";
 import { requireCompleteProfile } from "@/lib/dal";
+import { RUN_BUDGET_MS } from "@/lib/chains";
 import { generateRoasts } from "@/lib/gemini";
-import { countRecentGenerations, getCritics } from "@/lib/images";
+import {
+  countRecentRequests,
+  finishRequest,
+  loadChainConfig,
+  logResponse,
+  startRequest,
+  type RequestStatus,
+} from "@/lib/generation";
+import { getCritics } from "@/lib/images";
 import {
   DAILY_GENERATION_LIMIT,
   IMAGE_BUCKET,
@@ -16,10 +25,20 @@ import { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 type Failure = { ok: false; error: string };
-// keepUpload: the path already belongs to another post, so cleanup must not touch it
-type StepResult = { ok: true; id: string } | (Failure & { keepUpload?: boolean });
+// status and detail go to the request log; error is what the user sees.
+// keepUpload: the path already belongs to another post, so cleanup must not touch it.
+type StepFailure = Failure & { status: RequestStatus; detail: string; keepUpload?: boolean };
+type StepResult = { ok: true; id: string; roastCount: number } | StepFailure;
+// Filled in as the run goes, so the caller can log and roll back even if a later step throws
+type Run = {
+  imageId: string | null;
+  requestId: string | null;
+  chainId: number | null;
+  configProblem: string | null;
+};
 
 const ROAST_ERROR = "The critics couldn't judge that photo. Please try again.";
+const START_ERROR = "Couldn't start your post. Please try again.";
 
 const ROAST_REASON_COPY = {
   rejected:
@@ -28,6 +47,13 @@ const ROAST_REASON_COPY = {
   not_configured: ROAST_ERROR,
   failed: ROAST_ERROR,
 } as const;
+
+const fail = (error: string, status: RequestStatus, detail: string): StepFailure => ({
+  ok: false,
+  error,
+  status,
+  detail,
+});
 
 // JPEG files always start with FF D8 FF
 const isJpeg = (bytes: Uint8Array) => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -50,32 +76,28 @@ async function discard(supabase: Supabase, path: string, imageId: string | null)
   }
 }
 
-// Everything after the upload check. Records the new row's id in `created`
-// so the caller can roll it back even if a later step throws.
+// Everything after the upload check
 async function processUpload(
   supabase: Supabase,
   userId: string,
   path: string,
   context: string,
   topic: Topic,
-  created: { imageId: string | null },
+  run: Run,
+  startedAt: number,
 ): Promise<StepResult> {
-  // Log the attempt before counting, so parallel requests and failed runs
+  // Log the request before counting, so parallel requests and failed runs
   // all count toward the cap
-  const { error: attemptError } = await supabase
-    .from("generation_attempts")
-    .insert({ image_path: path });
-  if (attemptError) {
-    console.error("Logging generation attempt failed:", attemptError.message);
-    return { ok: false, error: "Couldn't start your post. Please try again." };
-  }
-  const recent = await countRecentGenerations(userId);
-  if (recent === null) return { ok: false, error: "Couldn't start your post. Please try again." };
+  run.requestId = await startRequest({ userId, imagePath: path, topic });
+  if (!run.requestId) return fail(START_ERROR, "failed", "The request couldn't be logged.");
+  const recent = await countRecentRequests(userId);
+  if (recent === null) return fail(START_ERROR, "failed", "Counting recent requests failed.");
   if (recent > DAILY_GENERATION_LIMIT) {
-    return {
-      ok: false,
-      error: `You've used all ${DAILY_GENERATION_LIMIT} of today's posts. The critics clock back in tomorrow.`,
-    };
+    return fail(
+      `You've used all ${DAILY_GENERATION_LIMIT} of today's posts. The critics clock back in tomorrow.`,
+      "limited",
+      "Over the daily limit.",
+    );
   }
 
   const { data: file, error: downloadError } = await supabase.storage
@@ -83,18 +105,18 @@ async function processUpload(
     .download(path);
   if (downloadError || !file) {
     console.error("Image download failed:", downloadError?.message ?? "no data");
-    return { ok: false, error: "Couldn't read your photo. Please try again." };
+    return fail("Couldn't read your photo. Please try again.", "failed", "The photo couldn't be downloaded.");
   }
   if (file.size > IMAGE_MAX_BYTES) {
-    return { ok: false, error: "That photo is too big. Please try a smaller one." };
+    return fail("That photo is too big. Please try a smaller one.", "failed", "The photo is over 5 MB.");
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!isJpeg(bytes)) {
-    return { ok: false, error: "That file isn't a photo we can read. Please try another." };
+    return fail("That file isn't a photo we can read. Please try another.", "failed", "The file isn't a JPEG.");
   }
 
   const imageData = { data: Buffer.from(bytes).toString("base64"), mimeType: "image/jpeg" as const };
-  return roastUpload(supabase, path, context, topic, imageData, created);
+  return roastUpload(supabase, run.requestId, path, context, topic, imageData, run, startedAt);
 }
 
 // Column grants only allow image_path, context and topic; id and user_id come from defaults
@@ -103,41 +125,62 @@ async function saveImage(
   path: string,
   context: string,
   topic: Topic,
-  created: { imageId: string | null },
-): Promise<StepResult> {
+  run: Run,
+): Promise<{ ok: true; id: string } | StepFailure> {
   const { data: image, error: imageError } = await supabase
     .from("images")
     .insert({ image_path: path, context: context || null, topic })
     .select("id")
     .single<{ id: string }>();
   if (imageError?.code === "23505") {
-    return { ok: false, error: "That photo is already posted.", keepUpload: true };
+    return { ...fail("That photo is already posted.", "failed", "The photo path is already posted."), keepUpload: true };
   }
   if (imageError || !image) {
     console.error("Image save failed:", imageError?.message ?? "no row");
-    return { ok: false, error: "Couldn't save your post. Please try again." };
+    return fail("Couldn't save your post. Please try again.", "failed", "Saving the post failed.");
   }
-  created.imageId = image.id;
+  run.imageId = image.id;
   return { ok: true, id: image.id };
 }
 
 async function roastUpload(
   supabase: Supabase,
+  requestId: string,
   path: string,
   context: string,
   topic: Topic,
   image: { data: string; mimeType: "image/jpeg" },
-  created: { imageId: string | null },
+  run: Run,
+  startedAt: number,
 ): Promise<StepResult> {
   const critics = await getCritics(topic);
-  if (critics.length === 0) return { ok: false, error: ROAST_ERROR };
+  if (critics.length === 0) return fail(ROAST_ERROR, "failed", "No critics loaded.");
 
-  const result = await generateRoasts({ image, context, topic, critics });
-  if (!result.ok) return { ok: false, error: ROAST_REASON_COPY[result.reason] };
+  // The chain comes from the mix; when the database has no usable one, the
+  // built-in chain runs and configProblem says why
+  const config = await loadChainConfig(topic);
+  run.chainId = config.chain.id;
+  run.configProblem = config.problem;
 
-  const saved = await saveImage(supabase, path, context, topic, created);
+  const result = await generateRoasts({
+    chain: config.chain,
+    context: { topic, critics, note: context, terms: config.terms, examples: config.examples },
+    image,
+    deadline: startedAt + RUN_BUDGET_MS,
+    onResponse: (log) => logResponse(requestId, log),
+  });
+  if (!result.ok) {
+    return fail(
+      ROAST_REASON_COPY[result.reason],
+      result.reason === "not_configured" ? "failed" : result.reason,
+      result.error,
+    );
+  }
+
+  const saved = await saveImage(supabase, path, context, topic, run);
   if (!saved.ok) return saved;
 
+  // Every roast keeps the last step's prompt and the model that answered it
   const { error } = await supabase.from("captions").insert(
     result.roasts.map((r) => ({
       image_id: saved.id,
@@ -151,15 +194,18 @@ async function roastUpload(
   );
   if (error) {
     console.error("Roast save failed:", error.message);
-    return { ok: false, error: "Couldn't save your roasts. Please try again." };
+    return fail("Couldn't save your roasts. Please try again.", "failed", `Saving the roasts failed: ${error.message}`);
   }
-  return { ok: true, id: saved.id };
+  return { ok: true, id: saved.id, roastCount: result.roasts.length };
 }
 
 // The browser uploads straight to Storage; only the object path comes through here.
 // On success this redirects to the new photo's page and never returns.
 // The critics on the topic's panel roast the photo.
 export async function createImage(path: string, context: string, topicSlug: string): Promise<Failure> {
+  // The model calls' time budget counts from here, so slow checks shrink it
+  // instead of pushing the route past its limit
+  const startedAt = Date.now();
   // Same gate as the /new page, so a direct POST can't skip onboarding
   const { user } = await requireCompleteProfile();
   if (!isOwnImagePath(user.id, path)) return { ok: false, error: "Invalid upload." };
@@ -188,17 +234,30 @@ export async function createImage(path: string, context: string, topicSlug: stri
     .maybeSingle<{ id: string }>();
   if (existing) redirect(`/images/${existing.id}`);
 
-  const created: { imageId: string | null } = { imageId: null };
+  const run: Run = { imageId: null, requestId: null, chainId: null, configProblem: null };
   let outcome: StepResult;
   try {
-    outcome = await processUpload(supabase, user.id, path, note, topic, created);
+    outcome = await processUpload(supabase, user.id, path, note, topic, run, startedAt);
   } catch (err) {
-    console.error("Creating post failed:", err instanceof Error ? err.message : err);
-    outcome = { ok: false, error: ROAST_ERROR };
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Creating post failed:", message);
+    outcome = fail(ROAST_ERROR, "failed", `Unexpected error: ${message}`);
+  }
+
+  if (run.requestId) {
+    const notes = [outcome.ok ? null : outcome.detail, run.configProblem].filter(Boolean);
+    await finishRequest(run.requestId, {
+      status: outcome.ok ? "succeeded" : outcome.status,
+      error: notes.length > 0 ? notes.join(" ") : null,
+      chainId: run.chainId,
+      imageId: outcome.ok ? outcome.id : null,
+      roastCount: outcome.ok ? outcome.roastCount : 0,
+      durationMs: Date.now() - startedAt,
+    });
   }
 
   if (!outcome.ok) {
-    if (!outcome.keepUpload) await discard(supabase, path, created.imageId);
+    if (!outcome.keepUpload) await discard(supabase, path, run.imageId);
     return { ok: false, error: outcome.error };
   }
 
