@@ -2,13 +2,33 @@
 // Supabase or env. The prompt chain behind every roast: its shape, the
 // template rendering, the checks and the weighted pick. Limits match the
 // prompt chains migration.
-import { RATING_MAX, ROAST_TARGET, TIP_TARGET, topicInfo, type Critic, type Topic } from "@/lib/roasts";
+import {
+  parseRoastResponse,
+  RATING_MAX,
+  ROAST_TARGET,
+  TIP_TARGET,
+  topicInfo,
+  type Critic,
+  type RoastDraft,
+  type Topic,
+} from "@/lib/roasts";
 
 // Tried once when a step's own model is busy, missing, refuses the request or
 // isn't callable. Slower, but rarely busy.
 export const FALLBACK_MODEL = "gemini-flash-lite-latest";
 // The only provider this app has a client for
 export const CALLABLE_PROVIDER = "google";
+
+// Time for the model calls of one run, counted from the start of the server
+// action, so the upload checks before it eat into it. Leaves room for saving
+// inside the route's 60s maxDuration.
+export const RUN_BUDGET_MS = 48_000;
+// Per attempt, and a share of what's left: a two-step chain whose first call
+// needs the fallback still has time for its second step
+export const ATTEMPT_MAX_MS = 25_000;
+export const MARGIN_MS = 2_000;
+// No attempt starts with a shorter timeout than this
+export const MIN_ATTEMPT_MS = 3_000;
 
 export const TERMS_MAX = 30;
 export const EXAMPLES_MAX = 5;
@@ -60,6 +80,58 @@ export type Example = {
   tip: string | null;
   score: number;
   explanation: string;
+};
+
+export type FallbackReason = "busy" | "not_found" | "bad_request" | "unsupported_provider";
+export type ResponseStatus = "ok" | "rejected" | "busy" | "failed";
+
+// One model call, as the runner asks for it
+export type CallRequest = {
+  model: string;
+  system: string;
+  user: string;
+  withImage: boolean;
+  // Set for roast_json steps: the answer must be reviews for these critics
+  criticSlugs: string[] | null;
+  temperature: number | null;
+  thinkingLevel: ThinkingLevel | null;
+  timeoutMs: number;
+};
+
+// model is the version that answered (a "-latest" alias resolves to a dated one)
+export type CallOutcome =
+  | { ok: true; text: string; model: string }
+  | { ok: false; kind: "rejected" | "busy" | "not_found" | "bad_request" | "failed"; error: string };
+
+// One llm_responses row
+export type ResponseLog = {
+  chainId: number | null;
+  stepId: number | null;
+  stepOrder: number;
+  modelId: number | null;
+  providerModelId: string;
+  isFallback: boolean;
+  fallbackReason: FallbackReason | null;
+  systemPrompt: string;
+  userPrompt: string;
+  temperature: number | null;
+  responseText: string | null;
+  status: ResponseStatus;
+  error: string | null;
+  durationMs: number;
+};
+
+export type ChainResult =
+  | { ok: true; roasts: RoastDraft[]; prompt: string; model: string }
+  | { ok: false; reason: "rejected" | "busy" | "failed"; error: string };
+
+export type RunOptions = {
+  call: (request: CallRequest) => Promise<CallOutcome>;
+  now: () => number;
+  // Epoch ms; no call starts past it
+  deadline: number;
+  // Awaited, so a log row lands before the run moves on; its errors are swallowed
+  onResponse: (log: ResponseLog) => Promise<void> | void;
 };
 
 export type ChainContext = {
@@ -298,4 +370,152 @@ export function toChain(row: ChainRow): Chain | null {
     });
   }
   return { id: row.id, slug: row.slug, steps };
+}
+
+const FALLBACK_REF: ModelRef = {
+  id: null,
+  providerModelId: FALLBACK_MODEL,
+  providerSlug: CALLABLE_PROVIDER,
+  temperatureSupported: true,
+  thinkingLevel: "minimal",
+};
+
+const TIME_UP = "The time budget for this run was used up.";
+
+type Attempt =
+  | { ok: true; text: string; model: string; roasts: RoastDraft[] | null }
+  | { ok: false; status: Exclude<ResponseStatus, "ok">; error: string; fallbackReason: FallbackReason | null };
+
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+// What the model said, judged as this step needs it. Only call errors can
+// fall back; a refusal or an unusable answer would just be asked again.
+function judge(outcome: CallOutcome, step: ChainStep, critics: Critic[]): Attempt {
+  if (!outcome.ok) {
+    const { kind } = outcome;
+    return {
+      ok: false,
+      status: kind === "rejected" ? "rejected" : kind === "busy" ? "busy" : "failed",
+      error: outcome.error,
+      fallbackReason: kind === "busy" || kind === "not_found" || kind === "bad_request" ? kind : null,
+    };
+  }
+  if (step.outputType === "text") {
+    return outcome.text.trim()
+      ? { ok: true, text: outcome.text, model: outcome.model, roasts: null }
+      : { ok: false, status: "failed", error: "Empty answer.", fallbackReason: null };
+  }
+  const parsed = parseRoastResponse(outcome.text, critics);
+  if (parsed.ok) return { ok: true, text: outcome.text, model: outcome.model, roasts: parsed.roasts };
+  if (parsed.reason === "rejected") {
+    return { ok: false, status: "rejected", error: "The model said the photo can't be judged.", fallbackReason: null };
+  }
+  return { ok: false, status: "failed", error: `Unusable answer (${parsed.reason}).`, fallbackReason: null };
+}
+
+// Runs the steps in order, each step's answer becoming {{previous}} in the
+// next. Each call is logged through onResponse. A step falls back to
+// FALLBACK_MODEL once when its own model is busy, missing, refuses the request
+// or isn't callable.
+export async function runChain(chain: Chain, ctx: ChainContext, opts: RunOptions): Promise<ChainResult> {
+  const problems = validateChain(chain);
+  if (problems.length > 0) {
+    return { ok: false, reason: "failed", error: clipText(`Invalid chain: ${problems.join(" ")}`) };
+  }
+  if (ctx.critics.length === 0) return { ok: false, reason: "failed", error: "No critics on the panel." };
+
+  const criticSlugs = ctx.critics.map((c) => c.slug);
+  let previous = "";
+
+  for (const [i, step] of chain.steps.entries()) {
+    const vars = buildVars(ctx, previous);
+    const system = renderTemplate(step.systemPrompt, vars);
+    const user = renderTemplate(step.userPrompt, vars);
+    const stepsLeft = chain.steps.length - i;
+    const failed = (a: Extract<Attempt, { ok: false }>): ChainResult => ({
+      ok: false,
+      reason: a.status,
+      error: clipText(`Step ${step.order}: ${a.error}`),
+    });
+    const timeUp: ChainResult = { ok: false, reason: "busy", error: clipText(`Step ${step.order}: ${TIME_UP}`) };
+
+    // Null when there's no time left to start it
+    const attempt = async (model: ModelRef, fallbackReason: FallbackReason | null): Promise<Attempt | null> => {
+      const timeoutMs = Math.min(
+        ATTEMPT_MAX_MS,
+        Math.floor((opts.deadline - opts.now() - MARGIN_MS) / stepsLeft),
+      );
+      if (timeoutMs < MIN_ATTEMPT_MS) return null;
+
+      const temperature = model.temperatureSupported ? step.temperature : null;
+      const started = opts.now();
+      let outcome: CallOutcome;
+      try {
+        outcome = await opts.call({
+          model: model.providerModelId,
+          system,
+          user,
+          withImage: step.inputType === "image",
+          criticSlugs: step.outputType === "roast_json" ? criticSlugs : null,
+          temperature,
+          thinkingLevel: model.thinkingLevel,
+          timeoutMs,
+        });
+      } catch (err) {
+        outcome = { ok: false, kind: "failed", error: errorText(err) };
+      }
+      const durationMs = Math.max(0, opts.now() - started);
+      const result = judge(outcome, step, ctx.critics);
+
+      try {
+        await opts.onResponse({
+          chainId: chain.id,
+          stepId: step.id,
+          stepOrder: step.order,
+          modelId: fallbackReason ? null : model.id,
+          providerModelId: outcome.ok ? outcome.model : model.providerModelId,
+          isFallback: fallbackReason !== null,
+          fallbackReason,
+          systemPrompt: system,
+          userPrompt: user,
+          temperature,
+          responseText: outcome.ok ? outcome.text : null,
+          status: result.ok ? "ok" : result.status,
+          error: result.ok ? null : clipText(result.error),
+          durationMs,
+        });
+      } catch {
+        // Logging never breaks a roast
+      }
+      return result;
+    };
+
+    let result: Attempt | null = null;
+    let fallbackReason: FallbackReason | null = null;
+    if (step.model.providerSlug !== CALLABLE_PROVIDER) {
+      fallbackReason = "unsupported_provider";
+    } else {
+      result = await attempt(step.model, null);
+      if (result === null) return timeUp;
+      if (!result.ok && result.fallbackReason && step.model.providerModelId !== FALLBACK_MODEL) {
+        fallbackReason = result.fallbackReason;
+      }
+    }
+
+    if (fallbackReason) {
+      const second = await attempt(FALLBACK_REF, fallbackReason);
+      if (second === null) return result && !result.ok ? failed(result) : timeUp;
+      result = second;
+    }
+
+    if (!result) return timeUp;
+    if (!result.ok) return failed(result);
+    if (result.roasts) {
+      return { ok: true, roasts: result.roasts, prompt: `${system}\n\n${user}`, model: result.model };
+    }
+    previous = result.text;
+  }
+
+  // validateChain makes the last step write roasts, so this is a safety net
+  return { ok: false, reason: "failed", error: "The chain ended without roasts." };
 }
