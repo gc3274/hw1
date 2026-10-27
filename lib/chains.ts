@@ -372,6 +372,27 @@ export function toChain(row: ChainRow): Chain | null {
   return { id: row.id, slug: row.slug, steps };
 }
 
+// One llm_responses insert
+export function responseRow(requestId: string, log: ResponseLog) {
+  return {
+    generation_request_id: requestId,
+    prompt_chain_id: log.chainId,
+    prompt_chain_step_id: log.stepId,
+    llm_model_id: log.modelId,
+    step_order: log.stepOrder,
+    provider_model_id: clipText(log.providerModelId, 100),
+    is_fallback: log.isFallback,
+    fallback_reason: log.fallbackReason,
+    system_prompt: log.systemPrompt,
+    user_prompt: log.userPrompt,
+    temperature: log.temperature,
+    response_text: log.responseText,
+    status: log.status,
+    error: log.error === null ? null : clipText(log.error),
+    duration_ms: log.durationMs,
+  };
+}
+
 const FALLBACK_REF: ModelRef = {
   id: null,
   providerModelId: FALLBACK_MODEL,
