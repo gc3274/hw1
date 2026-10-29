@@ -16,11 +16,22 @@ const code = sql
 
 const FUNCTIONS = [
   "copy_prompt_chain(bigint, text, text, text)",
-  "insert_prompt_chain_step(bigint, integer, jsonb)",
-  "move_prompt_chain_step(bigint, integer)",
-  "delete_prompt_chain_step(bigint)",
-  "set_default_prompt_chain(bigint)",
+  "insert_prompt_chain_step(bigint, integer, jsonb, timestamptz)",
+  "move_prompt_chain_step(bigint, integer, timestamptz)",
+  "update_prompt_chain_step(bigint, bigint, jsonb, timestamptz)",
+  "delete_prompt_chain_step(bigint, timestamptz)",
+  "set_default_prompt_chain(bigint, timestamptz)",
   "llm_spend_since(timestamptz)",
+];
+
+// The functions that change a chain's steps or its default check the caller's
+// snapshot under the lock
+const GUARDED = [
+  "insert_prompt_chain_step",
+  "move_prompt_chain_step",
+  "update_prompt_chain_step",
+  "delete_prompt_chain_step",
+  "set_default_prompt_chain",
 ];
 
 function body(name: string): string {
@@ -45,6 +56,11 @@ describe("the editable chains migration", () => {
     const fn = body(name);
     expect(fn).toContain("security invoker");
     expect(fn).toContain("set search_path = ''");
+  });
+
+  it.each(GUARDED)("refuses a stale change in %s after taking the lock", (name) => {
+    const fn = body(name);
+    expect(fn.indexOf("raise exception 'stale'")).toBeGreaterThan(fn.indexOf("for update"));
   });
 
   it("keeps the settings table away from the API roles", () => {

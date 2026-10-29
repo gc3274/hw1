@@ -17,8 +17,9 @@
 --     picks one that can't run (was always the one-pass slug)
 --   * prompt_chain_steps order: checked at the end of each statement, so the
 --     functions below can swap and shift steps in one update
---   * functions the admin area calls to copy a chain, insert, move and delete
---     steps, set the default chain and add up spend, each in one transaction
+--   * functions the admin area calls to copy a chain, insert, edit, move and
+--     delete steps, set the default chain and add up spend, each in one
+--     transaction
 --   * generation_settings: posts per user per day, the wait between posts
 --     and a daily budget, all editable in the admin area
 --   * llm_models prices and llm_responses tokens and cost
@@ -199,7 +200,10 @@ create trigger generation_settings_set_updated_at
 
 -- Each locks the chain it changes, so two edits to one chain run one after
 -- the other, and raises a short code the admin area turns into a message:
--- chain_not_found, step_not_found, chain_full, only_step, bad_direction.
+-- chain_not_found, step_not_found, chain_full, only_step, bad_direction,
+-- stale. p_expected is the chain's updated_at when the admin area checked the
+-- change: every change bumps it, so a check made against an older chain is
+-- refused (stale) instead of applied to a chain it was never checked on.
 
 -- A new chain with the same steps as p_source. It starts with weight 0, so no
 -- run picks it until an admin gives it a share or makes it the default.
@@ -240,7 +244,7 @@ $$;
 -- Puts a step at p_position (1 = first; past the end = last) and moves the
 -- later ones down. A chain has at most 10 steps.
 create or replace function public.insert_prompt_chain_step(
-  p_chain bigint, p_position integer, p_step jsonb
+  p_chain bigint, p_position integer, p_step jsonb, p_expected timestamptz default null
 )
 returns bigint
 language plpgsql
@@ -255,6 +259,12 @@ begin
   perform 1 from public.prompt_chains where id = p_chain for update;
   if not found then
     raise exception 'chain_not_found';
+  end if;
+  -- Someone else changed the chain since the caller read it
+  if p_expected is not null and not exists (
+    select 1 from public.prompt_chains where id = p_chain and updated_at = p_expected
+  ) then
+    raise exception 'stale';
   end if;
 
   select coalesce(max(step_order), 0) into v_last
@@ -288,7 +298,9 @@ $$;
 
 -- Swaps a step with the one before (-1) or after (1). Nothing happens at
 -- either end.
-create or replace function public.move_prompt_chain_step(p_step bigint, p_direction integer)
+create or replace function public.move_prompt_chain_step(
+  p_step bigint, p_direction integer, p_expected timestamptz default null
+)
 returns void
 language plpgsql
 security invoker
@@ -308,6 +320,12 @@ begin
     raise exception 'step_not_found';
   end if;
   perform 1 from public.prompt_chains where id = v_chain for update;
+  -- Someone else changed the chain since the caller read it
+  if p_expected is not null and not exists (
+    select 1 from public.prompt_chains where id = v_chain and updated_at = p_expected
+  ) then
+    raise exception 'stale';
+  end if;
 
   -- Again under the lock, in case another edit moved it
   select step_order into v_order from public.prompt_chain_steps where id = p_step;
@@ -332,7 +350,7 @@ end;
 $$;
 
 -- Deletes a step and closes the gap. A chain keeps at least one step.
-create or replace function public.delete_prompt_chain_step(p_step bigint)
+create or replace function public.delete_prompt_chain_step(p_step bigint, p_expected timestamptz default null)
 returns void
 language plpgsql
 security invoker
@@ -347,6 +365,12 @@ begin
     raise exception 'step_not_found';
   end if;
   perform 1 from public.prompt_chains where id = v_chain for update;
+  -- Someone else changed the chain since the caller read it
+  if p_expected is not null and not exists (
+    select 1 from public.prompt_chains where id = v_chain and updated_at = p_expected
+  ) then
+    raise exception 'stale';
+  end if;
 
   select step_order into v_order from public.prompt_chain_steps where id = p_step;
   if not found then
@@ -365,9 +389,47 @@ begin
 end;
 $$;
 
+-- Saves a step's settings and prompts; where it sits only changes by moving it
+create or replace function public.update_prompt_chain_step(
+  p_chain bigint, p_step bigint, p_data jsonb, p_expected timestamptz default null
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  perform 1 from public.prompt_chains where id = p_chain for update;
+  if not found then
+    raise exception 'chain_not_found';
+  end if;
+  -- Someone else changed the chain since the caller read it
+  if p_expected is not null and not exists (
+    select 1 from public.prompt_chains where id = p_chain and updated_at = p_expected
+  ) then
+    raise exception 'stale';
+  end if;
+
+  update public.prompt_chain_steps
+     set description   = p_data ->> 'description',
+         input_type    = p_data ->> 'input_type',
+         output_type   = p_data ->> 'output_type',
+         llm_model_id  = (p_data ->> 'llm_model_id')::bigint,
+         temperature   = (p_data ->> 'temperature')::numeric,
+         system_prompt = p_data ->> 'system_prompt',
+         user_prompt   = p_data ->> 'user_prompt'
+   where id = p_step and prompt_chain_id = p_chain;
+  if not found then
+    raise exception 'step_not_found';
+  end if;
+
+  update public.prompt_chains set updated_at = now() where id = p_chain;
+end;
+$$;
+
 -- Makes p_chain the default and gives it every new run: weight 100, every
 -- other chain 0
-create or replace function public.set_default_prompt_chain(p_chain bigint)
+create or replace function public.set_default_prompt_chain(p_chain bigint, p_expected timestamptz default null)
 returns void
 language plpgsql
 security invoker
@@ -381,6 +443,12 @@ begin
   if not found then
     raise exception 'chain_not_found';
   end if;
+  -- Someone else changed the chain since the caller read it
+  if p_expected is not null and not exists (
+    select 1 from public.prompt_chains where id = p_chain and updated_at = p_expected
+  ) then
+    raise exception 'stale';
+  end if;
 
   -- In this order: the one-default index can't wait for the end
   update public.prompt_chains set is_default = false where is_default and id <> p_chain;
@@ -392,6 +460,9 @@ begin
   on conflict (prompt_chain_id) do update
     set weight = excluded.weight
     where public.prompt_chain_mix.weight is distinct from excluded.weight;
+
+  -- A step change checked before this is now stale
+  update public.prompt_chains set updated_at = now() where id = p_chain;
 end;
 $$;
 
@@ -409,17 +480,19 @@ $$;
 
 revoke execute on function public.prompt_chains_keep_default() from public, anon, authenticated;
 revoke execute on function public.copy_prompt_chain(bigint, text, text, text) from public, anon, authenticated;
-revoke execute on function public.insert_prompt_chain_step(bigint, integer, jsonb) from public, anon, authenticated;
-revoke execute on function public.move_prompt_chain_step(bigint, integer) from public, anon, authenticated;
-revoke execute on function public.delete_prompt_chain_step(bigint) from public, anon, authenticated;
-revoke execute on function public.set_default_prompt_chain(bigint) from public, anon, authenticated;
+revoke execute on function public.insert_prompt_chain_step(bigint, integer, jsonb, timestamptz) from public, anon, authenticated;
+revoke execute on function public.move_prompt_chain_step(bigint, integer, timestamptz) from public, anon, authenticated;
+revoke execute on function public.delete_prompt_chain_step(bigint, timestamptz) from public, anon, authenticated;
+revoke execute on function public.update_prompt_chain_step(bigint, bigint, jsonb, timestamptz) from public, anon, authenticated;
+revoke execute on function public.set_default_prompt_chain(bigint, timestamptz) from public, anon, authenticated;
 revoke execute on function public.llm_spend_since(timestamptz) from public, anon, authenticated;
 
 grant execute on function public.copy_prompt_chain(bigint, text, text, text) to service_role;
-grant execute on function public.insert_prompt_chain_step(bigint, integer, jsonb) to service_role;
-grant execute on function public.move_prompt_chain_step(bigint, integer) to service_role;
-grant execute on function public.delete_prompt_chain_step(bigint) to service_role;
-grant execute on function public.set_default_prompt_chain(bigint) to service_role;
+grant execute on function public.insert_prompt_chain_step(bigint, integer, jsonb, timestamptz) to service_role;
+grant execute on function public.move_prompt_chain_step(bigint, integer, timestamptz) to service_role;
+grant execute on function public.delete_prompt_chain_step(bigint, timestamptz) to service_role;
+grant execute on function public.update_prompt_chain_step(bigint, bigint, jsonb, timestamptz) to service_role;
+grant execute on function public.set_default_prompt_chain(bigint, timestamptz) to service_role;
 grant execute on function public.llm_spend_since(timestamptz) to service_role;
 
 notify pgrst, 'reload schema';
@@ -441,4 +514,4 @@ commit;
 -- select routine_name, grantee from information_schema.role_routine_grants
 --  where routine_schema = 'public' and grantee in ('anon', 'authenticated', 'PUBLIC')
 --    and routine_name in ('copy_prompt_chain', 'insert_prompt_chain_step', 'move_prompt_chain_step',
---      'delete_prompt_chain_step', 'set_default_prompt_chain', 'llm_spend_since');
+--      'update_prompt_chain_step', 'delete_prompt_chain_step', 'set_default_prompt_chain', 'llm_spend_since');
