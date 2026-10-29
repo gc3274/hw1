@@ -29,11 +29,20 @@ describe("usageFrom", () => {
     expect(usageFrom({ promptTokenCount: 1_300, candidatesTokenCount: 250, thoughtsTokenCount: 40 })).toEqual({
       input: 1_300,
       output: 290,
+      cached: 0,
     });
   });
 
   it("treats a missing count as 0", () => {
-    expect(usageFrom({ promptTokenCount: 900 })).toEqual({ input: 900, output: 0 });
+    expect(usageFrom({ promptTokenCount: 900 })).toEqual({ input: 900, output: 0, cached: 0 });
+  });
+
+  it("keeps the cached part of the prompt", () => {
+    expect(usageFrom({ promptTokenCount: 2_000, cachedContentTokenCount: 1_500, candidatesTokenCount: 10 })).toEqual({
+      input: 2_000,
+      output: 10,
+      cached: 1_500,
+    });
   });
 
   it("is unknown when the API sent no counts", () => {

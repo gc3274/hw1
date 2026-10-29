@@ -32,6 +32,8 @@ type Run = {
   requestId: string | null;
   chainId: number | null;
   configProblem: string | null;
+  // A daily budget is set, so every call must be priced
+  budgeted: boolean;
 };
 
 const ROAST_ERROR = "The critics couldn't judge that photo. Please try again.";
@@ -90,12 +92,14 @@ async function processUpload(
   if (!started) return fail(START_ERROR, "failed", "The request couldn't be logged.");
   run.requestId = started.id;
   const [limits, history, spentUsd] = await Promise.all([loadLimits(), postHistory(userId, started), spentToday()]);
-  // Refuse rather than run past limits that couldn't be read
-  if (!limits) return fail(START_ERROR, "failed", "Reading the limits failed.");
-  if (!history) return fail(START_ERROR, "failed", "Counting recent requests failed.");
+  // Refuse rather than run past limits that couldn't be read. Logged as
+  // limited, like any refusal before a model call, so it doesn't use up a post.
+  if (!limits) return fail(START_ERROR, "limited", "Reading the limits failed.");
+  if (!history) return fail(START_ERROR, "limited", "Counting recent requests failed.");
   if (limits.dailyBudgetUsd !== null && spentUsd === null) {
-    return fail(START_ERROR, "failed", "Adding up the last day's spend failed.");
+    return fail(START_ERROR, "limited", "Adding up the last day's spend failed.");
   }
+  run.budgeted = limits.dailyBudgetUsd !== null;
   const now = Date.now();
   const check = checkLimits({ limits, history, spentUsd, now });
   if (!check.ok) return fail(limitMessage(check, limits, now), "limited", LIMIT_DETAIL[check.reason]);
@@ -161,6 +165,10 @@ async function roastUpload(
   const config = await loadChainConfig(topic);
   run.chainId = config.chain.id;
   run.configProblem = config.problem;
+  // Unpriced calls would slip past the budget
+  if (run.budgeted && !config.pricesRead) {
+    return fail(START_ERROR, "limited", "Reading model prices failed while a daily budget is set.");
+  }
 
   const result = await generateRoasts({
     chain: config.chain,
@@ -235,7 +243,7 @@ export async function createImage(path: string, context: string, topicSlug: stri
     .maybeSingle<{ id: string }>();
   if (existing) redirect(`/images/${existing.id}`);
 
-  const run: Run = { imageId: null, requestId: null, chainId: null, configProblem: null };
+  const run: Run = { imageId: null, requestId: null, chainId: null, configProblem: null, budgeted: false };
   let outcome: StepResult;
   try {
     outcome = await processUpload(supabase, user.id, path, note, topic, run, startedAt);

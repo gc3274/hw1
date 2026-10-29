@@ -313,6 +313,11 @@ describe("costUsd", () => {
     expect(costUsd({ input: 0, output: 0 }, price)).toBe(0);
   });
 
+  it("leaves cached input out, so the cost stays a floor", () => {
+    expect(costUsd({ input: 2_000, output: 500, cached: 1_000 }, price)).toBe(0.006);
+    expect(costUsd({ input: 100, output: 0, cached: 500 }, price)).toBe(0);
+  });
+
   it("is unknown without usage or a price", () => {
     expect(costUsd(null, price)).toBeNull();
     expect(costUsd({ input: 5, output: 5 }, undefined)).toBeNull();

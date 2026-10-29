@@ -280,12 +280,12 @@ Every run from `/new` checks three limits from `generation_settings` before it c
 | Wait between a person's posts | none | From the start of their last run |
 | Daily budget | none | What every run cost in the last 24 hours, admin runs included. Reaching it pauses roasting for everyone. |
 
-- Of two posts sent at once, only runs that started earlier count against a post, so the first one goes ahead.
-- If the limits, the count or (with a budget set) the spend can't be read, the post is refused rather than run unchecked.
+- A post counts only the runs that started before it, so of two posts sent at once the first one goes ahead. Two that start within the same instant can both take the last slot.
+- If the limits, the count or (with a budget set) the spend or the prices can't be read, the post is refused rather than run unchecked. The refusal is logged as `limited`, so it doesn't use up a post.
 - `/new` shows the posts left, or why posting is paused and when it opens again.
 - Admin runs never check the limits.
 
-Each model call records the tokens Gemini reports (`usageMetadata`: the prompt with the photo in, the answer plus thinking out) and its cost. The cost uses the price on the `llm_models` row for the model id the step asked for, so `gemini-flash-lite-latest` needs its own row to price fallback calls. A model without a price records tokens but no cost, so the daily budget only counts priced calls.
+Each model call records the tokens Gemini reports (`usageMetadata`: the prompt with the photo in, the answer plus thinking out) and its cost. The cost uses the price on the `llm_models` row for the model id the step asked for, so `gemini-flash-lite-latest` needs its own row to price fallback calls. A model without a price records tokens but no cost, so the daily budget only counts priced calls. Input Gemini serves from its cache is billed at a discount and left out of the cost, so spend is a floor.
 
 ## Admin area
 

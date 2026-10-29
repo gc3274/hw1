@@ -99,7 +99,8 @@ export type CallRequest = {
 };
 
 // Tokens one call used. Output includes thinking, which is billed as output.
-export type Usage = { input: number; output: number };
+// cached is the part of input Gemini served from its cache, billed at a discount.
+export type Usage = { input: number; output: number; cached?: number };
 // US dollars per million tokens, from the model's row in llm_models
 export type Price = { inputPerMillion: number; outputPerMillion: number };
 
@@ -167,10 +168,13 @@ const isPlaceholder = (key: string): key is Placeholder =>
 const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
 
 // What a call cost in US dollars, to the micro-dollar the column keeps. Null
-// when either side is unknown, so an unpriced call never reads as free.
+// when either side is unknown, so an unpriced call never reads as free. Cached
+// input is left out rather than guessed at its discount, so the total stays a
+// floor and a daily budget never trips early.
 export function costUsd(usage: Usage | null | undefined, price: Price | null | undefined): number | null {
   if (!usage || !price) return null;
-  const dollars = (usage.input * price.inputPerMillion + usage.output * price.outputPerMillion) / 1_000_000;
+  const billedInput = Math.max(0, usage.input - (usage.cached ?? 0));
+  const dollars = (billedInput * price.inputPerMillion + usage.output * price.outputPerMillion) / 1_000_000;
   return Math.round(dollars * 1_000_000) / 1_000_000;
 }
 

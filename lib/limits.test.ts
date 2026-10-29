@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import { DAY_MS, DEFAULT_LIMITS, checkLimits, limitMessage, waitText, type Limits, type PostHistory } from "./limits";
 
 const now = Date.UTC(2026, 10, 4, 15, 0, 0);
-const none: PostHistory = { used: 0, lastAt: null, oldestAt: null };
+const none: PostHistory = { times: [] };
 const limits = (over: Partial<Limits> = {}): Limits => ({ ...DEFAULT_LIMITS, ...over });
+const HOUR = 60 * 60 * 1000;
+// Posts that started this many hours ago, newest first
+const ago = (...hours: number[]): PostHistory => ({ times: hours.map((h) => now - h * HOUR) });
 
 describe("checkLimits", () => {
   it("lets a first post through", () => {
@@ -12,17 +15,26 @@ describe("checkLimits", () => {
   });
 
   it("stops the post that would go over the daily limit, and says when one frees up", () => {
-    const history = { used: 5, lastAt: now - 1_000, oldestAt: now - 3 * 60 * 60 * 1000 };
+    expect(checkLimits({ limits: limits(), history: ago(0.1, 1, 2, 2.5, 3), spentUsd: null, now })).toEqual({
+      ok: false,
+      reason: "daily",
+      retryAt: now - 3 * HOUR + DAY_MS,
+    });
+    expect(checkLimits({ limits: limits(), history: ago(0.1, 1, 2, 3), spentUsd: null, now }).ok).toBe(true);
+  });
+
+  it("frees a post when enough have aged out, after the limit was lowered", () => {
+    // 8 posts, then the admin lowers the limit to 5: the 4 oldest have to age out
+    const history = ago(1, 2, 3, 4, 5, 6, 7, 8);
     expect(checkLimits({ limits: limits(), history, spentUsd: null, now })).toEqual({
       ok: false,
       reason: "daily",
-      retryAt: now - 3 * 60 * 60 * 1000 + DAY_MS,
+      retryAt: now - 5 * HOUR + DAY_MS,
     });
-    expect(checkLimits({ limits: limits(), history: { ...history, used: 4 }, spentUsd: null, now }).ok).toBe(true);
   });
 
   it("makes a user wait between posts", () => {
-    const history = { used: 1, lastAt: now - 20_000, oldestAt: now - 20_000 };
+    const history = { times: [now - 20_000] };
     expect(checkLimits({ limits: limits({ secondsBetweenPosts: 60 }), history, spentUsd: null, now })).toEqual({
       ok: false,
       reason: "wait",
@@ -51,8 +63,7 @@ describe("checkLimits", () => {
   });
 
   it("checks the budget before the user's own limits", () => {
-    const history = { used: 9, lastAt: now, oldestAt: now };
-    expect(checkLimits({ limits: limits({ dailyBudgetUsd: 1 }), history, spentUsd: 3, now })).toMatchObject({
+    expect(checkLimits({ limits: limits({ dailyBudgetUsd: 1 }), history: ago(0, 0, 0, 0, 0, 0), spentUsd: 3, now })).toMatchObject({
       reason: "budget",
     });
   });
@@ -77,6 +88,12 @@ describe("limitMessage", () => {
     expect(limitMessage({ ok: false, reason: "wait", retryAt: now + 90_000 }, limits(), now)).toContain(
       "You can post again in 2 minutes.",
     );
+  });
+
+  it("tells a paused budget from a spent one", () => {
+    const check = { ok: false, reason: "budget", retryAt: null } as const;
+    expect(limitMessage(check, limits({ dailyBudgetUsd: 0 }), now)).toContain("paused for now");
+    expect(limitMessage(check, limits({ dailyBudgetUsd: 3 }), now)).toContain("last 24 hours is used up");
   });
 
   it("names the daily limit and when a post frees up", () => {

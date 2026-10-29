@@ -42,6 +42,8 @@ export type ChainConfig = {
   examples: Example[];
   // By model id; models without a price are left out, so their calls have no cost
   prices: Map<string, Price>;
+  // False when the prices couldn't be read, so a run under a budget can refuse
+  pricesRead: boolean;
   // Anything that went wrong picking the chain, for the request's log
   problem: string | null;
 };
@@ -104,12 +106,7 @@ export async function postHistory(userId: string, before?: StartedRequest): Prom
       console.error("Reading recent roast requests failed:", error.message);
       return null;
     }
-    const times = ((data ?? []) as { created_at: string }[]).map((r) => Date.parse(r.created_at));
-    return {
-      used: times.length,
-      lastAt: times.length > 0 ? times[0] : null,
-      oldestAt: times.length > 0 ? times[times.length - 1] : null,
-    };
+    return { times: ((data ?? []) as { created_at: string }[]).map((r) => Date.parse(r.created_at)) };
   } catch (err) {
     console.error("Reading recent roast requests failed:", message(err));
     return null;
@@ -177,7 +174,7 @@ export async function postingStatus(userId: string): Promise<{
   const [limits, history, spentUsd] = await Promise.all([loadLimits(), postHistory(userId), spentToday()]);
   const now = Date.now();
   if (!limits || !history) return { limits, remaining: null, check: null, now };
-  const remaining = Math.max(0, limits.postsPerDay - history.used);
+  const remaining = Math.max(0, limits.postsPerDay - history.times.length);
   if (limits.dailyBudgetUsd !== null && spentUsd === null) return { limits, remaining, check: null, now };
   return { limits, remaining, check: checkLimits({ limits, history, spentUsd, now }), now };
 }
@@ -260,6 +257,7 @@ export async function loadChainConfig(topic: Topic): Promise<ChainConfig> {
       terms: [],
       examples: [],
       prices: new Map(),
+      pricesRead: false,
       problem: clipText(`config_fallback: ${message(err)}`),
     };
   }
@@ -334,7 +332,14 @@ export async function loadChainConfig(topic: Topic): Promise<ChainConfig> {
   );
 
   const unique = [...new Set(problems)];
-  return { chain, terms, examples, prices, problem: unique.length > 0 ? clipText(unique.join("; ")) : null };
+  return {
+    chain,
+    terms,
+    examples,
+    prices,
+    pricesRead: pricesRead !== null && !pricesRead.error,
+    problem: unique.length > 0 ? clipText(unique.join("; ")) : null,
+  };
 }
 
 // Best effort: a lost log row never breaks a roast

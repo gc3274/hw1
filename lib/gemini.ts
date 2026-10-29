@@ -56,14 +56,19 @@ export function classifyError(err: unknown): "busy" | "not_found" | "bad_request
 }
 
 // Billed tokens: the prompt (the photo included) in, the answer plus thinking
-// out. Null when the API sent no counts.
+// out, and how much of the prompt came from Gemini's cache. Null when the API
+// sent no counts.
 export function usageFrom(meta: GenerateContentResponseUsageMetadata | undefined): Usage | null {
   if (!meta) return null;
-  const { promptTokenCount, candidatesTokenCount, thoughtsTokenCount } = meta;
+  const { promptTokenCount, candidatesTokenCount, thoughtsTokenCount, cachedContentTokenCount } = meta;
   if (promptTokenCount === undefined && candidatesTokenCount === undefined && thoughtsTokenCount === undefined) {
     return null;
   }
-  return { input: promptTokenCount ?? 0, output: (candidatesTokenCount ?? 0) + (thoughtsTokenCount ?? 0) };
+  return {
+    input: promptTokenCount ?? 0,
+    output: (candidatesTokenCount ?? 0) + (thoughtsTokenCount ?? 0),
+    cached: cachedContentTokenCount ?? 0,
+  };
 }
 
 function roastSchema(criticSlugs: string[]): Schema {

@@ -18,13 +18,9 @@ export type Limits = {
 // The generation_settings defaults, used when its row is missing
 export const DEFAULT_LIMITS: Limits = { postsPerDay: 5, secondsBetweenPosts: 0, dailyBudgetUsd: null };
 
-// A user's earlier runs in the last 24 hours, refused ones left out
-export type PostHistory = {
-  used: number;
-  // Epoch ms of the newest and the oldest of them
-  lastAt: number | null;
-  oldestAt: number | null;
-};
+// A user's earlier runs in the last 24 hours, refused ones left out: when
+// each started, in epoch ms, newest first
+export type PostHistory = { times: number[] };
 
 export type LimitReason = "budget" | "daily" | "wait";
 export type LimitCheck = { ok: true } | { ok: false; reason: LimitReason; retryAt: number | null };
@@ -49,12 +45,15 @@ export function checkLimits(input: {
   if (limits.dailyBudgetUsd !== null && (spentUsd === null || spentUsd >= limits.dailyBudgetUsd)) {
     return { ok: false, reason: "budget", retryAt: null };
   }
-  if (history.used >= limits.postsPerDay) {
-    // A post frees up when the oldest one counted turns 24 hours old
-    return { ok: false, reason: "daily", retryAt: history.oldestAt === null ? null : history.oldestAt + DAY_MS };
+  const { times } = history;
+  if (times.length >= limits.postsPerDay) {
+    // A post frees up once fewer than postsPerDay are left in the window, so
+    // when the postsPerDay-th newest turns 24 hours old. That's the oldest only
+    // while the count is exactly at the limit; an admin may have lowered it.
+    return { ok: false, reason: "daily", retryAt: times[limits.postsPerDay - 1] + DAY_MS };
   }
-  if (limits.secondsBetweenPosts > 0 && history.lastAt !== null) {
-    const retryAt = history.lastAt + limits.secondsBetweenPosts * 1000;
+  if (limits.secondsBetweenPosts > 0 && times.length > 0) {
+    const retryAt = times[0] + limits.secondsBetweenPosts * 1000;
     if (now < retryAt) return { ok: false, reason: "wait", retryAt };
   }
   return { ok: true };
@@ -77,7 +76,10 @@ export function limitMessage(check: Extract<LimitCheck, { ok: false }>, limits: 
   const inTime = check.retryAt === null ? null : waitText(check.retryAt - now);
   switch (check.reason) {
     case "budget":
-      return "The critics are off the clock: today’s roasting budget is used up. Try again tomorrow.";
+      // The window rolls, so a spent budget reopens as older runs age out; $0 is a pause
+      return limits.dailyBudgetUsd === 0
+        ? "The critics are off the clock: roasting is paused for now. Try again later."
+        : "The critics are off the clock: the roasting budget for the last 24 hours is used up. Try again in a few hours.";
     case "daily":
       return `You’ve used all ${plural(limits.postsPerDay, "post")} for the last 24 hours. ${
         inTime ? `You can post again in ${inTime}.` : "The critics clock back in tomorrow."
