@@ -10,6 +10,7 @@ import {
   type Chain,
   type ChainContext,
   type ChainStep,
+  type Price,
   type ResponseLog,
 } from "./chains";
 import type { Critic } from "./roasts";
@@ -258,5 +259,39 @@ describe("runChain", () => {
     const result = await runChain(DEFAULT_CHAIN, ctx, opts);
     expect(!result.ok && Array.from(result.error).length).toBe(500);
     expect(logs[0].error?.length).toBe(500);
+  });
+});
+
+describe("runChain costs", () => {
+  const prices = new Map<string, Price>([
+    ["gemini-3.5-flash", { inputPerMillion: 1.5, outputPerMillion: 9 }],
+    [FALLBACK_MODEL, { inputPerMillion: 0.3, outputPerMillion: 2.5 }],
+  ]);
+  const usage = { input: 1_000, output: 200 };
+
+  it("logs each call's tokens and prices it by the model it asked for", async () => {
+    const { opts, logs } = harness([
+      { ...err("busy"), usage: null },
+      { ...ok(reviews, "gemini-flash-lite-002"), usage },
+    ]);
+    await runChain(DEFAULT_CHAIN, ctx, { ...opts, prices });
+
+    expect(logs.map((l) => [l.inputTokens, l.outputTokens, l.costUsd])).toEqual([
+      [null, null, null],
+      // The fallback's price, though the answer came from a dated version
+      [1_000, 200, 0.0008],
+    ]);
+  });
+
+  it("logs tokens without a cost when the model has no price", async () => {
+    const { opts, logs } = harness([{ ...ok(reviews), usage }]);
+    await runChain(DEFAULT_CHAIN, ctx, opts);
+    expect(logs[0]).toMatchObject({ inputTokens: 1_000, outputTokens: 200, costUsd: null });
+  });
+
+  it("counts the tokens of an answer it couldn't use", async () => {
+    const { opts, logs } = harness([{ ...ok("not json"), usage }]);
+    await runChain(DEFAULT_CHAIN, ctx, { ...opts, prices });
+    expect(logs[0]).toMatchObject({ status: "failed", costUsd: 0.0033 });
   });
 });

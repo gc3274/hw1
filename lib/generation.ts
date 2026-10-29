@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  CALLABLE_PROVIDER,
   CHAIN_SELECT,
   DEFAULT_CHAIN,
   EXAMPLES_MAX,
@@ -12,6 +13,7 @@ import {
   type Chain,
   type ChainRow,
   type Example,
+  type Price,
   type ResponseLog,
   type Term,
 } from "@/lib/chains";
@@ -32,6 +34,8 @@ export type ChainConfig = {
   chain: Chain;
   terms: Term[];
   examples: Example[];
+  // By model id; models without a price are left out, so their calls have no cost
+  prices: Map<string, Price>;
   // Anything that went wrong picking the chain, for the request's log
   problem: string | null;
 };
@@ -135,6 +139,24 @@ async function pickConfiguredChain(db: Db): Promise<{ chain: Chain | null; probl
   return { chain: null, problems };
 }
 
+type PriceRow = {
+  provider_model_id: string;
+  input_usd_per_million: number | string | null;
+  output_usd_per_million: number | string | null;
+};
+
+function toPrices(rows: PriceRow[]): Map<string, Price> {
+  const prices = new Map<string, Price>();
+  for (const row of rows) {
+    const inputPerMillion = Number(row.input_usd_per_million);
+    const outputPerMillion = Number(row.output_usd_per_million);
+    if (row.input_usd_per_million === null || row.output_usd_per_million === null) continue;
+    if (!Number.isFinite(inputPerMillion) || !Number.isFinite(outputPerMillion)) continue;
+    prices.set(row.provider_model_id, { inputPerMillion, outputPerMillion });
+  }
+  return prices;
+}
+
 // The chain this run uses (picked by the mix), plus the topic's terms and
 // examples. Never throws: when the database has no usable chain, the run uses
 // the built-in DEFAULT_CHAIN and says so in `problem`.
@@ -143,7 +165,13 @@ export async function loadChainConfig(topic: Topic): Promise<ChainConfig> {
   try {
     db = serviceDb();
   } catch (err) {
-    return { chain: DEFAULT_CHAIN, terms: [], examples: [], problem: clipText(`config_fallback: ${message(err)}`) };
+    return {
+      chain: DEFAULT_CHAIN,
+      terms: [],
+      examples: [],
+      prices: new Map(),
+      problem: clipText(`config_fallback: ${message(err)}`),
+    };
   }
 
   const problems: string[] = [];
@@ -163,7 +191,7 @@ export async function loadChainConfig(topic: Topic): Promise<ChainConfig> {
   }
 
   const forTopic = `topic.is.null,topic.eq.${topic}`;
-  const [termsRead, examplesRead] = await Promise.all([
+  const [termsRead, examplesRead, pricesRead] = await Promise.all([
     db
       .from("terms")
       .select("term, definition, example")
@@ -178,13 +206,21 @@ export async function loadChainConfig(topic: Topic): Promise<ChainConfig> {
       .order("priority", { ascending: false })
       .order("id")
       .limit(EXAMPLES_MAX),
+    // Every priced model the app can call, so the fallback and the built-in
+    // chain are priced too
+    db
+      .from("llm_models")
+      .select("provider_model_id, input_usd_per_million, output_usd_per_million, llm_providers!inner(slug)")
+      .eq("llm_providers.slug", CALLABLE_PROVIDER)
+      .not("input_usd_per_million", "is", null),
   ]).catch((err: unknown) => {
-    problems.push(`reading terms and examples failed: ${message(err)}`);
-    return [null, null] as const;
+    problems.push(`reading terms, examples and prices failed: ${message(err)}`);
+    return [null, null, null] as const;
   });
 
   if (termsRead?.error) problems.push(`reading terms failed: ${termsRead.error.message}`);
   if (examplesRead?.error) problems.push(`reading examples failed: ${examplesRead.error.message}`);
+  if (pricesRead?.error) problems.push(`reading prices failed: ${pricesRead.error.message}`);
 
   const terms = ((termsRead && !termsRead.error ? termsRead.data : null) ?? []) as Term[];
   const examples = (
@@ -203,8 +239,12 @@ export async function loadChainConfig(topic: Topic): Promise<ChainConfig> {
     explanation: e.explanation,
   }));
 
+  const prices = toPrices(
+    ((pricesRead && !pricesRead.error ? pricesRead.data : null) ?? []) as PriceRow[],
+  );
+
   const unique = [...new Set(problems)];
-  return { chain, terms, examples, problem: unique.length > 0 ? clipText(unique.join("; ")) : null };
+  return { chain, terms, examples, prices, problem: unique.length > 0 ? clipText(unique.join("; ")) : null };
 }
 
 // Best effort: a lost log row never breaks a roast

@@ -168,6 +168,7 @@ async function roastUpload(
     image,
     deadline: startedAt + RUN_BUDGET_MS,
     onResponse: (log) => logResponse(requestId, log),
+    prices: config.prices,
   });
   if (!result.ok) {
     return fail(

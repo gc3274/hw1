@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { classifyError } = await import("./gemini");
+const { classifyError, usageFrom } = await import("./gemini");
 
 const apiError = (status: number, message = "error") => new ApiError({ status, message });
 
@@ -21,5 +21,23 @@ describe("classifyError", () => {
     ["a thrown string", "failed"],
   ] as const)("%s is %s", (err, kind) => {
     expect(classifyError(err)).toBe(kind);
+  });
+});
+
+describe("usageFrom", () => {
+  it("bills thinking as output", () => {
+    expect(usageFrom({ promptTokenCount: 1_300, candidatesTokenCount: 250, thoughtsTokenCount: 40 })).toEqual({
+      input: 1_300,
+      output: 290,
+    });
+  });
+
+  it("treats a missing count as 0", () => {
+    expect(usageFrom({ promptTokenCount: 900 })).toEqual({ input: 900, output: 0 });
+  });
+
+  it("is unknown when the API sent no counts", () => {
+    expect(usageFrom(undefined)).toBeNull();
+    expect(usageFrom({})).toBeNull();
   });
 });

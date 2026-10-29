@@ -98,10 +98,21 @@ export type CallRequest = {
   timeoutMs: number;
 };
 
-// model is the version that answered (a "-latest" alias resolves to a dated one)
+// Tokens one call used. Output includes thinking, which is billed as output.
+export type Usage = { input: number; output: number };
+// US dollars per million tokens, from the model's row in llm_models
+export type Price = { inputPerMillion: number; outputPerMillion: number };
+
+// model is the version that answered (a "-latest" alias resolves to a dated
+// one). usage is set whenever the API answered, a blocked answer included.
 export type CallOutcome =
-  | { ok: true; text: string; model: string }
-  | { ok: false; kind: "rejected" | "busy" | "not_found" | "bad_request" | "failed"; error: string };
+  | { ok: true; text: string; model: string; usage?: Usage | null }
+  | {
+      ok: false;
+      kind: "rejected" | "busy" | "not_found" | "bad_request" | "failed";
+      error: string;
+      usage?: Usage | null;
+    };
 
 // One llm_responses row
 export type ResponseLog = {
@@ -119,6 +130,10 @@ export type ResponseLog = {
   status: ResponseStatus;
   error: string | null;
   durationMs: number;
+  // Null when not known: the call never answered, or its model has no price
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costUsd: number | null;
 };
 
 export type ChainResult =
@@ -132,6 +147,9 @@ export type RunOptions = {
   deadline: number;
   // Awaited, so a log row lands before the run moves on; its errors are swallowed
   onResponse: (log: ResponseLog) => Promise<void> | void;
+  // By the model id each call asks for (FALLBACK_MODEL for the fallback); a
+  // model missing here has no cost
+  prices?: ReadonlyMap<string, Price>;
 };
 
 export type ChainContext = {
@@ -147,6 +165,14 @@ const isPlaceholder = (key: string): key is Placeholder =>
   (PLACEHOLDERS as readonly string[]).includes(key);
 
 const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
+
+// What a call cost in US dollars, to the micro-dollar the column keeps. Null
+// when either side is unknown, so an unpriced call never reads as free.
+export function costUsd(usage: Usage | null | undefined, price: Price | null | undefined): number | null {
+  if (!usage || !price) return null;
+  const dollars = (usage.input * price.inputPerMillion + usage.output * price.outputPerMillion) / 1_000_000;
+  return Math.round(dollars * 1_000_000) / 1_000_000;
+}
 
 // Postgres char_length counts code points, so cut on those and never split an emoji
 export function clipText(s: string, max = LOG_TEXT_MAX): string {
@@ -390,6 +416,9 @@ export function responseRow(requestId: string, log: ResponseLog) {
     status: log.status,
     error: log.error === null ? null : clipText(log.error),
     duration_ms: log.durationMs,
+    input_tokens: log.inputTokens,
+    output_tokens: log.outputTokens,
+    cost_usd: log.costUsd,
   };
 }
 
@@ -487,6 +516,7 @@ export async function runChain(chain: Chain, ctx: ChainContext, opts: RunOptions
       }
       const durationMs = Math.max(0, opts.now() - started);
       const result = judge(outcome, step, ctx.critics);
+      const usage = outcome.usage ?? null;
 
       try {
         await opts.onResponse({
@@ -504,6 +534,10 @@ export async function runChain(chain: Chain, ctx: ChainContext, opts: RunOptions
           status: result.ok ? "ok" : result.status,
           error: result.ok ? null : clipText(result.error),
           durationMs,
+          inputTokens: usage?.input ?? null,
+          outputTokens: usage?.output ?? null,
+          // Priced by the id asked for: the answering version can't be matched to a row
+          costUsd: costUsd(usage, opts.prices?.get(model.providerModelId)),
         });
       } catch {
         // Logging never breaks a roast

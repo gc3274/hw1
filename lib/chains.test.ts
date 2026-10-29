@@ -3,6 +3,7 @@ import {
   DEFAULT_CHAIN,
   buildVars,
   clipText,
+  costUsd,
   examplesBlock,
   pickChain,
   placeholdersIn,
@@ -297,5 +298,23 @@ describe("toChain", () => {
 describe("clipText", () => {
   it("cuts on code points", () => {
     expect(clipText("🔥🔥🔥", 2)).toBe("🔥🔥");
+  });
+});
+
+describe("costUsd", () => {
+  const price = { inputPerMillion: 1.5, outputPerMillion: 9 };
+
+  it("prices input and output separately", () => {
+    expect(costUsd({ input: 2_000, output: 500 }, price)).toBe(0.0075);
+  });
+
+  it("keeps micro-dollars, as the column does", () => {
+    expect(costUsd({ input: 1, output: 0 }, price)).toBe(0.000002);
+    expect(costUsd({ input: 0, output: 0 }, price)).toBe(0);
+  });
+
+  it("is unknown without usage or a price", () => {
+    expect(costUsd(null, price)).toBeNull();
+    expect(costUsd({ input: 5, output: 5 }, undefined)).toBeNull();
   });
 });

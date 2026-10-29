@@ -6,6 +6,7 @@ import {
   ThinkingLevel as GenaiThinkingLevel,
   Type,
   type GenerateContentConfig,
+  type GenerateContentResponseUsageMetadata,
   type Schema,
 } from "@google/genai";
 import {
@@ -14,8 +15,10 @@ import {
   type CallRequest,
   type Chain,
   type ChainContext,
+  type Price,
   type ResponseLog,
   type ThinkingLevel,
+  type Usage,
 } from "@/lib/chains";
 import type { RoastDraft } from "@/lib/roasts";
 
@@ -50,6 +53,17 @@ export function classifyError(err: unknown): "busy" | "not_found" | "bad_request
   if (err instanceof ApiError && err.status === 404) return "not_found";
   if (err instanceof ApiError && err.status === 400) return "bad_request";
   return "failed";
+}
+
+// Billed tokens: the prompt (the photo included) in, the answer plus thinking
+// out. Null when the API sent no counts.
+export function usageFrom(meta: GenerateContentResponseUsageMetadata | undefined): Usage | null {
+  if (!meta) return null;
+  const { promptTokenCount, candidatesTokenCount, thoughtsTokenCount } = meta;
+  if (promptTokenCount === undefined && candidatesTokenCount === undefined && thoughtsTokenCount === undefined) {
+    return null;
+  }
+  return { input: promptTokenCount ?? 0, output: (candidatesTokenCount ?? 0) + (thoughtsTokenCount ?? 0) };
 }
 
 function roastSchema(criticSlugs: string[]): Schema {
@@ -101,20 +115,32 @@ function geminiCaller(genai: GoogleGenAI, image: ImageInput) {
         config,
       });
 
+      // Blocked and empty answers still cost tokens
+      const usage = usageFrom(response.usageMetadata);
       // The API's own safety filters can block the photo or the answer outright
       const blockReason = response.promptFeedback?.blockReason;
       const finishReason = response.candidates?.[0]?.finishReason;
       if (blockReason || (finishReason && SAFETY_STOPS.has(finishReason))) {
         console.warn("Roast generation blocked:", blockReason ?? finishReason);
-        return { ok: false, kind: "rejected", error: `Blocked by the API's safety filters (${blockReason ?? finishReason}).` };
+        return {
+          ok: false,
+          kind: "rejected",
+          error: `Blocked by the API's safety filters (${blockReason ?? finishReason}).`,
+          usage,
+        };
       }
       const text = response.text;
       if (!text) {
         console.error("Roast generation returned no text. Finish reason:", finishReason ?? "unknown");
-        return { ok: false, kind: "failed", error: `No text in the answer (finish reason ${finishReason ?? "unknown"}).` };
+        return {
+          ok: false,
+          kind: "failed",
+          error: `No text in the answer (finish reason ${finishReason ?? "unknown"}).`,
+          usage,
+        };
       }
       // "-latest" aliases resolve to a dated model; store the one that answered
-      return { ok: true, text, model: response.modelVersion || req.model };
+      return { ok: true, text, model: response.modelVersion || req.model, usage };
     } catch (err) {
       const kind = classifyError(err);
       const message = err instanceof Error ? err.message : String(err);
@@ -132,6 +158,8 @@ export type GenerateRoastsInput = {
   // Epoch ms; no model call starts past it
   deadline: number;
   onResponse: (log: ResponseLog) => Promise<void> | void;
+  // Prices by model id, for each call's cost
+  prices: ReadonlyMap<string, Price>;
 };
 
 export type GenerateRoastsResult =
@@ -144,6 +172,7 @@ export async function generateRoasts({
   image,
   deadline,
   onResponse,
+  prices,
 }: GenerateRoastsInput): Promise<GenerateRoastsResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -156,5 +185,6 @@ export async function generateRoasts({
     now: Date.now,
     deadline,
     onResponse,
+    prices,
   });
 }
