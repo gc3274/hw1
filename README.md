@@ -16,7 +16,7 @@ Stack: Next.js 16.3.5 (App Router, `proxy.ts`), React 19, Tailwind 4, Supabase (
 
 House rules:
 - Critics roast the thing, never the person. Photos that are mainly of a person are turned away.
-- 5 posts per person per 24 hours (the cap counts roast runs, failed ones included, not roasts).
+- 5 posts per person per 24 hours by default (the cap counts roast runs, failed ones included, not roasts or refused tries). The admin area can change it, add a wait between a person's posts and set a daily spend cap for everyone. See [Limits and costs](#limits-and-costs).
 - Nothing is public until its owner posts it, and the uploader's note is never shown.
 
 ### Topics and critics
@@ -79,6 +79,7 @@ Run the migrations in `supabase/migrations/` in this order. Paste each whole fil
 3. `20261015120000_roast_mode.sql`: `critics`, `images.topic`, and `captions.critic_id`, `rating` and `tip`
 4. `20261021120000_superadmin.sql`: `profiles.is_superadmin`, column-level insert/update grants on `profiles`, and a guard trigger on the flag
 5. `20261028120000_prompt_chains_and_observability.sql`: LLM providers and models, prompt chains with their steps and mix, terms, example reviews, `generation_requests`, `llm_responses`, the sign-up lists and the hook that checks them. Its seeds only run the first time. Run it before deploying the code that uses it, then once more after: the copy of `generation_attempts` picks up the runs the old deploy logged in between
+6. `20261104120000_editable_chains_limits_costs.sql`: the default chain (`prompt_chains.is_default`), a deferrable step order and the functions the admin area uses to edit chains, `generation_settings` (the limits), model prices, and tokens and cost on `llm_responses`. Run it before deploying the code that uses it
 
 Each file can be re-run on its own, but re-running an older file resets grants that a later file added. **After re-running any file, re-run every later file, in order.** The two cases that bite:
 
@@ -256,7 +257,7 @@ commit;
 
 ## Prompt chains and logs
 
-Every roast run picks a prompt chain by the weights in `prompt_chain_mix` and runs its steps in order (`lib/chains.ts`). Two chains are seeded:
+Every roast run picks a prompt chain by the weights in `prompt_chain_mix` and runs its steps in order (`lib/chains.ts`). The admin area edits the chains and their steps, and the next run uses the edit: nothing is cached. Two chains are seeded:
 
 - **One pass** (100%): one call, photo in, every critic's review out. It renders exactly the prompt the app used before chains existed.
 - **Look, then roast** (0%): the first call writes plain notes on the photo, and the second gets the photo and the notes and writes the reviews.
@@ -265,9 +266,26 @@ Each step names a model from `llm_models`. Its prompts are templates with `{{top
 
 - A step whose model is busy, can't be found, rejects the request as invalid (HTTP 400), or belongs to a provider other than `google` is tried once more on `gemini-flash-lite-latest`. A safety refusal or an unusable answer is not retried.
 - The whole run gets 48 seconds of model time, shared between the steps still to run, which keeps it inside the route's 60-second limit.
-- If the database has no usable chain, the run uses the built-in one-pass chain and its log says `config_fallback`.
+- If the chain the mix picks can't run, the run uses the **default chain** (`prompt_chains.is_default`, set in the admin area; One pass to start). If that can't run either, it uses the built-in one-pass chain and its log says `config_fallback`.
 
-Every run writes a `generation_requests` row before the model is called (the daily cap counts these) and one `llm_responses` row per model call, with the prompts sent, the raw answer, the model that answered and the time it took. The admin area reads both.
+Every run writes a `generation_requests` row before the model is called (the daily cap counts these) and one `llm_responses` row per model call, with the prompts sent, the raw answer, the model that answered, the time it took, and the tokens and cost. The admin area reads both.
+
+## Limits and costs
+
+Every run from `/new` checks three limits from `generation_settings` before it calls a model (`lib/limits.ts`). The admin area edits them, and the next post uses them.
+
+| Limit | Default | Counts |
+|---|---|---|
+| Posts per person per 24 hours | 5 | The person's runs, failed ones included. Refused tries don't count. |
+| Wait between a person's posts | none | From the start of their last run |
+| Daily budget | none | What every run cost in the last 24 hours, admin runs included. Reaching it pauses roasting for everyone. |
+
+- Of two posts sent at once, only runs that started earlier count against a post, so the first one goes ahead.
+- If the limits, the count or (with a budget set) the spend can't be read, the post is refused rather than run unchecked.
+- `/new` shows the posts left, or why posting is paused and when it opens again.
+- Admin runs never check the limits.
+
+Each model call records the tokens Gemini reports (`usageMetadata`: the prompt with the photo in, the answer plus thinking out) and its cost. The cost uses the price on the `llm_models` row for the model id the step asked for, so `gemini-flash-lite-latest` needs its own row to price fallback calls. A model without a price records tokens but no cost, so the daily budget only counts priced calls.
 
 ## Admin area
 

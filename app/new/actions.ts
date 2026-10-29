@@ -5,21 +5,18 @@ import { requireCompleteProfile } from "@/lib/dal";
 import { RUN_BUDGET_MS } from "@/lib/chains";
 import { generateRoasts } from "@/lib/gemini";
 import {
-  countRecentRequests,
   finishRequest,
   loadChainConfig,
+  loadLimits,
   logResponse,
+  postHistory,
+  spentToday,
   startRequest,
   type RequestStatus,
 } from "@/lib/generation";
 import { getCritics } from "@/lib/images";
-import {
-  DAILY_GENERATION_LIMIT,
-  IMAGE_BUCKET,
-  IMAGE_MAX_BYTES,
-  isOwnImagePath,
-  readContext,
-} from "@/lib/captions";
+import { IMAGE_BUCKET, IMAGE_MAX_BYTES, isOwnImagePath, readContext } from "@/lib/captions";
+import { checkLimits, LIMIT_DETAIL, limitMessage } from "@/lib/limits";
 import { parseTopic, type Topic } from "@/lib/roasts";
 import { createClient } from "@/lib/supabase/server";
 
@@ -87,18 +84,21 @@ async function processUpload(
   startedAt: number,
 ): Promise<StepResult> {
   // Log the request before counting, so parallel requests and failed runs
-  // all count toward the cap
-  run.requestId = await startRequest({ userId, imagePath: path, topic });
-  if (!run.requestId) return fail(START_ERROR, "failed", "The request couldn't be logged.");
-  const recent = await countRecentRequests(userId);
-  if (recent === null) return fail(START_ERROR, "failed", "Counting recent requests failed.");
-  if (recent > DAILY_GENERATION_LIMIT) {
-    return fail(
-      `You've used all ${DAILY_GENERATION_LIMIT} of today's posts. The critics clock back in tomorrow.`,
-      "limited",
-      "Over the daily limit.",
-    );
+  // all count toward the cap. Only runs that started before this one count,
+  // so of two posts at once the earlier one goes ahead.
+  const started = await startRequest({ userId, imagePath: path, topic });
+  if (!started) return fail(START_ERROR, "failed", "The request couldn't be logged.");
+  run.requestId = started.id;
+  const [limits, history, spentUsd] = await Promise.all([loadLimits(), postHistory(userId, started), spentToday()]);
+  // Refuse rather than run past limits that couldn't be read
+  if (!limits) return fail(START_ERROR, "failed", "Reading the limits failed.");
+  if (!history) return fail(START_ERROR, "failed", "Counting recent requests failed.");
+  if (limits.dailyBudgetUsd !== null && spentUsd === null) {
+    return fail(START_ERROR, "failed", "Adding up the last day's spend failed.");
   }
+  const now = Date.now();
+  const check = checkLimits({ limits, history, spentUsd, now });
+  if (!check.ok) return fail(limitMessage(check, limits, now), "limited", LIMIT_DETAIL[check.reason]);
 
   const { data: file, error: downloadError } = await supabase.storage
     .from(IMAGE_BUCKET)
@@ -116,7 +116,7 @@ async function processUpload(
   }
 
   const imageData = { data: Buffer.from(bytes).toString("base64"), mimeType: "image/jpeg" as const };
-  return roastUpload(supabase, run.requestId, path, context, topic, imageData, run, startedAt);
+  return roastUpload(supabase, started.id, path, context, topic, imageData, run, startedAt);
 }
 
 // Column grants only allow image_path, context and topic; id and user_id come from defaults

@@ -28,8 +28,8 @@ export default function PrivacyPage() {
               The roasts, scores and tips the critics write for your photos, and the votes you cast.
             </li>
             <li>
-              A log of each roast run: when it ran, which model answered, how long it took, and the
-              prompt sent, which includes your note.
+              A log of each roast run: when it ran, which model answered, how long it took, how many
+              tokens it used, and the prompt sent, which includes your note.
             </li>
           </ul>
           <p>

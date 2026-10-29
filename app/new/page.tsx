@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PageTransition from "@/components/PageTransition";
 import { button, card, focusRing } from "@/components/ui";
-import { DAILY_GENERATION_LIMIT } from "@/lib/captions";
 import { requireCompleteProfile } from "@/lib/dal";
-import { countRecentRequests } from "@/lib/generation";
+import { postingStatus } from "@/lib/generation";
+import { limitMessage } from "@/lib/limits";
 import NewPostForm from "./NewPostForm";
 
 export const metadata: Metadata = {
@@ -17,9 +17,11 @@ export const maxDuration = 60;
 
 export default async function NewPostPage() {
   const { user } = await requireCompleteProfile();
-  const used = await countRecentRequests(user.id);
-  // Null when the count failed; the form still shows and the action re-checks the limit
-  const remaining = used === null ? null : Math.max(0, DAILY_GENERATION_LIMIT - used);
+  // Null parts when a read failed; the form still shows and the action checks again
+  const { limits, remaining, check, now } = await postingStatus(user.id);
+  // The budget and the daily limit hide the form; a wait between posts only gets a note
+  const stopped = check && !check.ok && check.reason !== "wait" ? check : null;
+  const waiting = check && !check.ok && check.reason === "wait" ? check : null;
 
   return (
     <PageTransition>
@@ -36,14 +38,13 @@ export default async function NewPostPage() {
           you one real tip. Nothing is public until you post it.
         </p>
 
-        {remaining === 0 ? (
+        {stopped && limits ? (
           <section aria-labelledby="limit-heading" className={`${card} mt-8 p-4 sm:p-6`}>
             <h2 id="limit-heading" className="text-lg font-semibold">
-              That’s all for today
+              {stopped.reason === "budget" ? "The critics are off the clock" : "That’s all for today"}
             </h2>
             <p className="mt-1 text-sm text-muted">
-              You’ve used all {DAILY_GENERATION_LIMIT} posts for the last 24 hours. The critics are
-              off duty until tomorrow, so go vote on everyone else’s in the meantime.
+              {limitMessage(stopped, limits, now)} Go vote on everyone else’s in the meantime.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link href="/" className={button("primary", "sm")}>
@@ -60,12 +61,17 @@ export default async function NewPostPage() {
               <h2 id="upload-heading" className="text-lg font-semibold">
                 Pick a topic and a photo
               </h2>
-              {remaining !== null && (
+              {remaining !== null && limits && (
                 <p className="text-sm text-muted tabular-nums">
-                  {remaining} of {DAILY_GENERATION_LIMIT} posts left today
+                  {remaining} of {limits.postsPerDay} posts left today
                 </p>
               )}
             </div>
+            {waiting && limits && (
+              <p role="status" className="mt-2 text-sm text-muted">
+                {limitMessage(waiting, limits, now)}
+              </p>
+            )}
             <NewPostForm userId={user.id} />
           </section>
         )}

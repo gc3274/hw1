@@ -17,6 +17,14 @@ import {
   type ResponseLog,
   type Term,
 } from "@/lib/chains";
+import {
+  checkLimits,
+  DAY_MS,
+  DEFAULT_LIMITS,
+  type LimitCheck,
+  type Limits,
+  type PostHistory,
+} from "@/lib/limits";
 import type { Topic } from "@/lib/roasts";
 import { serviceDb } from "@/lib/supabase/service";
 
@@ -25,8 +33,6 @@ import { serviceDb } from "@/lib/supabase/service";
 // nobody can write log rows of their own. Callers pass ids the server already
 // checked (the session's user id, a request id from startRequest), never a
 // value straight from the browser.
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type RequestStatus = "succeeded" | "rejected" | "busy" | "failed" | "limited";
 
@@ -44,6 +50,10 @@ type Db = ReturnType<typeof serviceDb>;
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+// The request row as the database wrote it; created_at stays the database's
+// string, which keeps the microseconds a JS Date would drop
+export type StartedRequest = { id: string; createdAt: string };
+
 // Written before the model is called, so failed and parallel runs count
 // toward the daily limit. Null when it can't be written: the caller refuses
 // to start a run it can't count.
@@ -51,53 +61,133 @@ export async function startRequest(input: {
   userId: string;
   imagePath: string;
   topic: Topic;
-}): Promise<string | null> {
+}): Promise<StartedRequest | null> {
   try {
     const { data, error } = await serviceDb()
       .from("generation_requests")
       .insert({ user_id: input.userId, source: "app", image_path: input.imagePath, topic: input.topic })
-      .select("id")
-      .single<{ id: string }>();
+      .select("id, created_at")
+      .single<{ id: string; created_at: string }>();
     if (error || !data) {
       console.error("Logging the roast request failed:", error?.message ?? "no row");
       return null;
     }
-    return data.id;
+    return { id: data.id, createdAt: data.created_at };
   } catch (err) {
     console.error("Logging the roast request failed:", message(err));
     return null;
   }
 }
 
-// Roast runs the user started in the last 24 hours, failed ones included.
-// Null when the count fails, so callers can refuse to spend quota they can't
-// account for.
-export async function countRecentRequests(userId: string): Promise<number | null> {
+// Most rows a history read needs: no limit goes above 100
+const HISTORY_MAX = 200;
+
+// The user's roast runs in the last 24 hours, failed ones included and
+// refused ones (limited) left out, so a refused try never uses up a post or
+// restarts the wait. With `before`, only the runs that started before that
+// one, so of two posts at once the earlier one goes ahead. Null when the read
+// fails, so callers can refuse to spend quota they can't account for.
+export async function postHistory(userId: string, before?: StartedRequest): Promise<PostHistory | null> {
   try {
-    const since = new Date(Date.now() - DAY_MS).toISOString();
-    const { count, error } = await serviceDb()
+    let query = serviceDb()
       .from("generation_requests")
-      .select("id", { count: "exact", head: true })
+      .select("created_at")
       .eq("user_id", userId)
       .eq("source", "app")
-      .gte("created_at", since);
+      .neq("status", "limited")
+      .gte("created_at", new Date(Date.now() - DAY_MS).toISOString());
+    if (before) {
+      query = query.or(`created_at.lt."${before.createdAt}",and(created_at.eq."${before.createdAt}",id.lt.${before.id})`);
+    }
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(HISTORY_MAX);
     if (error) {
-      console.error("Counting recent roast requests failed:", error.message);
+      console.error("Reading recent roast requests failed:", error.message);
       return null;
     }
-    return count ?? 0;
+    const times = ((data ?? []) as { created_at: string }[]).map((r) => Date.parse(r.created_at));
+    return {
+      used: times.length,
+      lastAt: times.length > 0 ? times[0] : null,
+      oldestAt: times.length > 0 ? times[times.length - 1] : null,
+    };
   } catch (err) {
-    console.error("Counting recent roast requests failed:", message(err));
+    console.error("Reading recent roast requests failed:", message(err));
     return null;
   }
 }
 
+type SettingsRow = {
+  posts_per_day: number;
+  seconds_between_posts: number;
+  daily_budget_usd: number | string | null;
+};
+
+// The limits the admin set. The defaults when the row is missing; null when
+// the read fails, so the caller refuses rather than run without them.
+export async function loadLimits(): Promise<Limits | null> {
+  try {
+    const { data, error } = await serviceDb()
+      .from("generation_settings")
+      .select("posts_per_day, seconds_between_posts, daily_budget_usd")
+      .maybeSingle<SettingsRow>();
+    if (error) {
+      console.error("Reading the roast limits failed:", error.message);
+      return null;
+    }
+    if (!data) return DEFAULT_LIMITS;
+    const budget = data.daily_budget_usd === null ? null : Number(data.daily_budget_usd);
+    return {
+      postsPerDay: data.posts_per_day,
+      secondsBetweenPosts: data.seconds_between_posts,
+      dailyBudgetUsd: budget !== null && Number.isFinite(budget) ? budget : null,
+    };
+  } catch (err) {
+    console.error("Reading the roast limits failed:", message(err));
+    return null;
+  }
+}
+
+// What the logged model calls cost in the last 24 hours, admin runs included.
+// Unpriced calls count as 0. Null when the read fails.
+export async function spentToday(): Promise<number | null> {
+  try {
+    const { data, error } = await serviceDb().rpc("llm_spend_since", {
+      p_since: new Date(Date.now() - DAY_MS).toISOString(),
+    });
+    if (error) {
+      console.error("Adding up the roast spend failed:", error.message);
+      return null;
+    }
+    const spent = Number(data);
+    return Number.isFinite(spent) ? spent : null;
+  } catch (err) {
+    console.error("Adding up the roast spend failed:", message(err));
+    return null;
+  }
+}
+
+// Where the user stands before posting, for the /new page. check and
+// remaining are null when a read failed; the post action checks again anyway.
+export async function postingStatus(userId: string): Promise<{
+  limits: Limits | null;
+  remaining: number | null;
+  check: LimitCheck | null;
+  now: number;
+}> {
+  const [limits, history, spentUsd] = await Promise.all([loadLimits(), postHistory(userId), spentToday()]);
+  const now = Date.now();
+  if (!limits || !history) return { limits, remaining: null, check: null, now };
+  const remaining = Math.max(0, limits.postsPerDay - history.used);
+  if (limits.dailyBudgetUsd !== null && spentUsd === null) return { limits, remaining, check: null, now };
+  return { limits, remaining, check: checkLimits({ limits, history, spentUsd, now }), now };
+}
+
 type ChainRead = { chain: Chain; problem: null } | { chain: null; problem: string };
 
-async function readChain(db: Db, by: { id: number } | { slug: string }): Promise<ChainRead> {
+async function readChain(db: Db, by: { id: number } | "default"): Promise<ChainRead> {
   const query = db.from("prompt_chains").select(CHAIN_SELECT);
-  const { data, error } = await ("id" in by ? query.eq("id", by.id) : query.eq("slug", by.slug)).maybeSingle<ChainRow>();
-  const name = "id" in by ? `chain ${by.id}` : `chain ${by.slug}`;
+  const { data, error } = await (by === "default" ? query.eq("is_default", true) : query.eq("id", by.id)).maybeSingle<ChainRow>();
+  const name = by === "default" ? "the default chain" : `chain ${by.id}`;
   if (error) return { chain: null, problem: `reading ${name} failed: ${error.message}` };
   if (!data) return { chain: null, problem: `${name} not found` };
 
@@ -132,8 +222,8 @@ async function pickConfiguredChain(db: Db): Promise<{ chain: Chain | null; probl
     }
   }
 
-  // The seeded one-pass chain, unless it was the one that just failed
-  const fallback = await readChain(db, { slug: DEFAULT_CHAIN.slug });
+  // The default chain the admin picked, unless it was the one that just failed
+  const fallback = await readChain(db, "default");
   if (fallback.chain && fallback.chain.id !== tried) return { chain: fallback.chain, problems };
   if (!fallback.chain) problems.push(fallback.problem);
   return { chain: null, problems };

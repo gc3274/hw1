@@ -4,7 +4,6 @@ export const IMAGE_BUCKET = "images";
 export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const CONTEXT_MAX = 140;
 export const CAPTION_MAX = 200;
-export const DAILY_GENERATION_LIMIT = 5;
 export const FEED_PAGE_SIZE = 24;
 export const FEED_MAX = 96;
 
