@@ -28,6 +28,7 @@ Each feature goes through a short design pass before it's built: what it does, o
 | Prompt chains and logs | Roasts run on prompt chains stored in the database (One pass, and Look, then roast), picked by an editable mix; every run and model call is logged; terms and example reviews feed the prompt; the admin area edits models, providers, terms, examples, the mix and photos, and reads the logs |
 | Sign-up allowlist | New accounts need a listed email domain (Columbia and Barnard to start) or a whitelisted address, checked by a Supabase hook; existing accounts are never locked out |
 | Editable chains, limits and costs | The admin area edits prompt chains and their steps and picks the default chain (also the fallback); posts per day, the wait between posts and a daily budget are editable; every model call logs its tokens and cost |
+| Prompt chain tool | A third app (`gc3274/prompt-chains`) on the same database and sign-in: create chains (blank or as a copy), edit and reorder steps, run a chain on a photo and read every step's answer, see what each chain made, and a light/dark/system theme |
 
 The football stats page from HW1 still works at `/stats`, but nothing links to it.
 
